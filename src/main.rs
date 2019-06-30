@@ -14,7 +14,11 @@ use nannou::{
     prelude::*,
     draw::Draw,
     color,
+    time::DurationF64,
 };
+use std::time::Duration;
+use std::collections::HashMap;
+use std::cell::RefCell;
 
 fn main() {
     nannou::app(model)
@@ -24,7 +28,7 @@ fn main() {
 }
 
 struct Model {
-    planets: Vec<Planet>,
+    planets: HashMap<u32, RefCell<Planet>>, //Hashmap of ids  Vec<Planet>,
     collided_planets: Vec<u32>, // IDs
     id_counter: u32,
 }
@@ -32,62 +36,64 @@ struct Model {
 impl Model {
     fn new() -> Model {
         Model {
-            planets: vec![],
+            planets: HashMap::new(),
             collided_planets: vec![],
 
             id_counter: 0,
         }
     }
 
-    fn update(&mut self, dt: f64) {
+    fn update(&mut self, dt: f64, app_time: &Duration) {
         // Remove collided planets
         self.remove_collided_planets();
 
-        for i in 0..self.planets.len() {   // For each planet
-            if !self.collided_planets.contains(&self.planets[i].id) {
-                for j in i+1..self.planets.len() {  // For every other planet
-                    if !self.collided_planets.contains(&self.planets[j].id) {
-                        if Self::is_colliding(&self.planets[i].pos, &self.planets[j].pos, self.planets[i].radius, self.planets[j].radius) {
-                            let tmp = self.planets[j].clone();
-                            self.planets[i] += &tmp;
-                            self.collided_planets.push(self.planets[j].id);
-                        } else {
-                            let df1 = planet::newtonian_grav(
-                                self.planets[i].mass, self.planets[j].mass,
-                                &self.planets[i].pos, &self.planets[j].pos
-                            );
+        let mut keys: Vec<&u32> = self.planets.keys().collect();
 
-                            self.planets[i].res_force += df1;
-                            self.planets[j].res_force -= df1; // Equal and opposite force
-                        }
+        for i in 0..keys.len() {   // For each planet
+            let mut me = self.planets.get(keys[i]).unwrap().borrow_mut();
+            for j in i+1..keys.len() {  // For every other planet
+                let mut other = self.planets.get(keys[j]).unwrap().borrow_mut();
+
+                if Self::is_colliding(&me.pos, &other.pos, me.radius, other.radius) {
+                    //self.planets.remove(keys[j]);
+                    if me.radius < other.radius {
+                        other.collide(&me);
+                        self.collided_planets.push(*keys[i]);
+                    } else {
+                        me.collide(&other);
+                        self.collided_planets.push(*keys[j]);
                     }
+                } else {
+                    let df1 = planet::newtonian_grav(
+                        me.mass, other.mass,
+                        &me.pos, &other.pos
+                    );
+
+                    me.res_force += df1;
+                    other.res_force -= df1; // Equal and opposite force
                 }
-                self.planets[i].update(dt);
             }
+            me.update(dt, app_time);
         }
     }
 
     fn display(&self, draw: &Draw) {
-        for p in self.planets.iter() {
-            p.display(draw);
+        for (_, p) in self.planets.iter() {
+            p.borrow().display(draw);
         }
     }
 
     fn add_planet(&mut self, pos: Point2<f64>, vel: Vector2<f64>, radius: f64) {
-        self.planets.push(Planet::new(self.id_counter, pos, vel, radius, 0.0));
+        self.planets.insert(self.id_counter, RefCell::new(Planet::new(self.id_counter, pos, vel, radius, 0.0)));
 
-        if self.id_counter >= std::u32::MAX {
-            self.id_counter = 0
-        } else {
-            self.id_counter += 1;
-        }
+        self.id_counter = self.id_counter.wrapping_add(1);
     }
 
     fn remove_collided_planets(&mut self) {
         if self.collided_planets.len() > 0 {
             let temp_c = self.collided_planets.clone();
-            self.planets.retain(|pl| {
-                !temp_c.contains(&pl.id)
+            self.planets.retain(|key, _| {
+                !temp_c.contains(&key)
             });
 
             self.collided_planets = vec![];
@@ -110,10 +116,15 @@ fn model(_app: &App) -> Model {
     m.add_planet(
         Point2::new(100.0f64, 100.0),
         Vector2::new(0.0f64, 0.0),
-        10.0,
+        20.0,
     );
     m.add_planet(
         Point2::new(20.0f64, 100.0),
+        Vector2::new(0.0f64, 0.0),
+        30.0,
+    );
+    m.add_planet(
+        Point2::new(40.0f64, 400.0),
         Vector2::new(0.0f64, 0.0),
         10.0,
     );
@@ -122,8 +133,8 @@ fn model(_app: &App) -> Model {
 }
 
 fn update(_app: &App, model: &mut Model, update: Update) {
-    let dt = update.since_last.as_nanos() as f64 * 0.000000001;
-    model.update(dt);
+    let dt: f64 = update.since_last.secs();
+    model.update(dt, &update.since_start);
 }
 
 fn view(app: &App, model: &Model, frame: Frame) -> Frame {
