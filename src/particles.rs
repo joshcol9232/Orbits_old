@@ -1,11 +1,13 @@
 use na::{Point2, Vector2};
 use std::time::Duration;
 use rand::{Rng, rngs::ThreadRng};
+
 use nannou::draw::Draw;
-use nannou::color::named;
+use nannou::color::{self, named};
+use nannou::time::DurationF64;
 
 const PLANET_TRAIL_VEL_LIMITS: (f32, f32) = (-5.0, 5.0);
-const PLANET_TRAIL_RAD_LIMITS: (f32, f32) = (1.0, 5.0);
+const PLANET_TRAIL_RAD_LIMITS: (f32, f32) = (0.5, 3.0);
 const PLANET_TRAIL_MAX_LIFETIME: Duration = Duration::from_secs(2);
 const PLANET_TRAIL_EMMISION_PERIOD: f64 = 0.05;    // Time between emmisions
 
@@ -70,14 +72,18 @@ impl ParticleSystem {
         }
     }
 
-    pub fn display(&self, draw: &Draw) {
+    pub fn display(&self, draw: &Draw, current_time: &Duration) {
         match self.sys_type {
             ParticleSysType::PlanetTrail => {
                 for p in self.particles.iter() {
-                    draw.ellipse()
-                        .radius(p.rad)
-                        .x_y(p.pos.x, p.pos.y)
-                        .color(named::BLUE);
+                    if p.time_created < *current_time {
+                        let alpha: f64 = 1.0 - ((*current_time - p.time_created).secs()/p.lifetime.secs());
+
+                        draw.ellipse()
+                            .radius(p.rad)
+                            .x_y(p.pos.x, p.pos.y)
+                            .rgba(0.0, 0.0, 1.0, alpha as f32);
+                    }
                 }
             },
         }

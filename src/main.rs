@@ -95,10 +95,10 @@ impl Model {
         }
     }
 
-    fn display(&self, draw: &Draw) {
+    fn display(&self, draw: &Draw, app_time: &Duration) {
         // Display particles behind planets
         for (_, sys) in self.planet_trail_particlesys.iter() {
-            sys.display(draw);
+            sys.display(draw, app_time);
         }
 
         for (_, p) in self.bodies.iter() {
@@ -188,7 +188,7 @@ fn view(app: &App, model: &Model, frame: Frame) -> Frame {
     let draw = app.draw();
     draw.background().color(color::named::BLACK);
 
-    model.display(&draw);
+    model.display(&draw, &app.duration.since_start);
 
     draw.to_frame(app, &frame).unwrap();
     frame
