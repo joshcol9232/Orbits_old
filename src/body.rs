@@ -14,32 +14,33 @@ use std::{
 };
 
 pub const PL_DENSITY: f64 = 5000.0;
-pub const GRAV_CONSTANT: f64 = 0.001;
 
 pub const TRAIL_NODE_LIFESPAN: Duration = Duration::from_millis(100);
 pub const TRAIL_PLACEMENT_INTERVAL: u128 = 20000000; // In nano seconds (0.02 seconds)
 
+pub type BodyID = u32;
+
 #[derive(Clone)]
-pub struct Planet {
-    pub id: u32,
+pub struct Body {
+    pub id: BodyID,
+    pub body_type: BodyType,
     pub pos: Point2<f64>,
     vel: Vector2<f64>,
     pub radius: f64,
     pub mass: f64,
     pub res_force: Vector2<f64>,
-    trail: Vec<TrailNode>,
 }
 
-impl Planet {
-    pub fn new(id: u32, pos: Point2<f64>, vel: Vector2<f64>, radius: f64, m: f64) -> Planet {
-        Planet {
+impl Body {
+    pub fn new(id: BodyID, body_type: BodyType, pos: Point2<f64>, vel: Vector2<f64>, radius: f64, m: f64) -> Body {
+        Body {
             id,
+            body_type,
             pos,
             vel,
             radius,
             mass: if m <= 0.0 { Self::get_mass_from_radius(radius) } else { m },
             res_force: Vector2::new(0.0, 0.0),
-            trail: vec![],
         }
     }
 
@@ -50,21 +51,11 @@ impl Planet {
             .color(named::WHITE);
     }
 
-    pub fn update(&mut self, dt: f64, app_time: &Duration) {
+    pub fn update_physics(&mut self, dt: f64) {
         // F/m = a
         self.vel += (self.res_force / self.mass) * dt;
         self.pos += self.vel * dt;
         self.res_force = Vector2::new(0.0, 0.0);
-
-        if app_time.as_nanos() % TRAIL_PLACEMENT_INTERVAL == 0 {
-            self.place_trail_node(app_time);
-        }
-    }
-
-    fn place_trail_node(&mut self, app_time: &Duration) {
-        self.trail.push(
-            TrailNode::new(Point2::new(self.pos.x as f32, self.pos.y as f32), app_time.clone())
-        );
     }
 
     #[inline]
@@ -101,40 +92,22 @@ impl Planet {
     }
 }
 
-impl PartialEq for Planet {
+impl PartialEq for Body {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl Eq for Planet {}
+impl Eq for Body {}
 
-impl fmt::Debug for Planet {
+impl fmt::Debug for Body {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Planet: {}", self.id)
+        write!(f, "Body: {}", self.id)
     }
 }
 
 #[derive(Clone, Copy)]
-struct TrailNode {
-    pos: Point2<f32>,
-    time_created: Duration,
-}
-
-impl TrailNode {
-    pub fn new(pos: Point2<f32>, time_created: Duration) -> TrailNode {
-        TrailNode {
-            pos,
-            time_created,
-        }
-    }
-}
-
-#[inline]
-pub fn newtonian_grav(m1: f64, m2: f64, pos1: &Point2<f64>, pos2: &Point2<f64>) -> Vector2<f64> {
-    let dist_vec = Vector2::new(pos2.x - pos1.x, pos2.y - pos1.y);
-    let force = (GRAV_CONSTANT * m1 * m2)/(dist_vec.x.powi(2) + dist_vec.y.powi(2));
-    let angle = dist_vec.y.atan2(dist_vec.x);
-
-    Vector2::new(force * angle.cos(), force * angle.sin())
+pub enum BodyType {
+    Planet,
+    Star,
 }
