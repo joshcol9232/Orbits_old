@@ -6,17 +6,10 @@ use nannou::{
     draw::Draw,
     color::named
 };
-use std::{
-    fmt,
-    f64::consts::PI,
-    ops::{Add, AddAssign},
-    time::Duration,
-};
+use std::fmt;
+use std::f64::consts::PI;
 
 pub const PL_DENSITY: f64 = 5000.0;
-
-pub const TRAIL_NODE_LIFESPAN: Duration = Duration::from_millis(100);
-pub const TRAIL_PLACEMENT_INTERVAL: u128 = 20000000; // In nano seconds (0.02 seconds)
 
 pub type BodyID = u32;
 
@@ -106,7 +99,7 @@ impl fmt::Debug for Body {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub enum BodyType {
     Planet,
     Star,
