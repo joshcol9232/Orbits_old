@@ -1,17 +1,4 @@
-use na::{Point2, Vector2};
-use std::time::Duration;
-use rand::{Rng, rngs::ThreadRng};
-
-use nannou::draw::Draw;
-use nannou::color::{self, named};
-use nannou::time::DurationF64;
-
-const PLANET_TRAIL_VEL_LIMITS: (f32, f32) = (-5.0, 5.0);
-const PLANET_TRAIL_RAD_LIMITS: (f32, f32) = (0.5, 3.0);
-const PLANET_TRAIL_MAX_LIFETIME: Duration = Duration::from_secs(2);
-const PLANET_TRAIL_EMMISION_PERIOD: f64 = 0.05;    // Time between emmisions
-
-pub struct ParticleSystem {
+pub struct PlanetTraiParticleSys {
     particles: Vec<Particle>,
     pub pos: Point2<f64>,
     rand_thread: ThreadRng,
@@ -20,7 +7,7 @@ pub struct ParticleSystem {
     pub dead: bool,
 }
 
-impl ParticleSystem {
+impl PlanetTraiParticleSys {
     pub fn new(pos: Point2<f64>, system_type: ParticleSysType) -> ParticleSystem {
         let mut p = ParticleSystem {
             particles: Vec::with_capacity(
@@ -46,6 +33,7 @@ impl ParticleSystem {
 
     fn add_particle(&mut self, current_time: &Duration) {
         let temp_pos = Point2::new(self.pos.x as f32, self.pos.y as f32);
+        
         let (pos, vel, rad, lifetime) = match self.sys_type {
             ParticleSysType::PlanetTrail => {
                 (
@@ -90,7 +78,6 @@ impl ParticleSystem {
     }
 
     pub fn update(&mut self, dt: f64, current_time: &Duration) {
-        println!("len: {}", self.particles.len());
         self.kill_particles(current_time);
         for p in self.particles.iter_mut() {
             p.update(dt as f32);
@@ -118,7 +105,7 @@ impl ParticleSystem {
     }
 }
 
-struct Particle {
+struct PlanetTrailParticle {
     pos: Point2<f32>,
     vel: Vector2<f32>,
     rad: f32,
@@ -126,7 +113,7 @@ struct Particle {
     lifetime: Duration,
 }
 
-impl Particle {
+impl PlanetTrailParticle {
     fn new(pos: Point2<f32>, vel: Vector2<f32>, rad: f32, time: Duration, lifetime: Duration) -> Particle {
         Particle {
             pos,
@@ -140,8 +127,4 @@ impl Particle {
     fn update(&mut self, dt: f32) {
         self.pos += self.vel * dt as f32;
     }
-}
-
-pub enum ParticleSysType {
-    PlanetTrail,
 }
