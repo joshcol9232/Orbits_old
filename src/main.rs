@@ -1,13 +1,16 @@
-extern crate nannou;
-extern crate nalgebra as na;
+extern crate ggez;
 extern crate rand;
 
 #[macro_export]
 macro_rules! mobile_get_set_defaults {
     ($t:ty) => {
+        #[inline(always)]
         fn pos(&self) -> &Point2<$t> { &self.pos }
+        #[inline(always)]
         fn pos_mut(&mut self) -> &mut Point2<$t> { &mut self.pos }
+        #[inline(always)]
         fn vel(&self) -> &Vector2<$t> { &self.vel }
+        #[inline(always)]
         fn vel_mut(&mut self) -> &mut Vector2<$t> { &mut self.vel }
     };
 }
@@ -15,6 +18,12 @@ macro_rules! mobile_get_set_defaults {
 mod planet;
 mod tools;
 mod particles;
+
+use ggez::event;
+use ggez::graphics;
+use ggez::nalgebra as na;
+use ggez::{Context, GameResult};
+use ggez::timer;
 
 use crate::planet::{Planet, PlanetID};
 use crate::particles::planet_trail::PlanetTrailParticleSys;
@@ -25,24 +34,11 @@ use na::{
     Vector2,
     RealField,
 };
-use nannou::{
-    prelude::*,
-    draw::Draw,
-    color,
-    time::DurationF64,
-};
-use std::time::Duration;
 use std::collections::HashMap;
 use std::cell::RefCell;
 
 pub const GRAV_CONSTANT: f64 = 0.001;
 
-fn main() {
-    nannou::app(model)
-        .update(update)
-        .simple_window(view)
-        .run();
-}
 
 // For mobile objects
 pub trait Mobile<T: RealField> {
@@ -57,7 +53,7 @@ pub trait Mobile<T: RealField> {
     }
 }
 
-struct Model {
+struct MainState {
     planets: HashMap<PlanetID, RefCell<Planet>>, //Hashmap of ids
     planet_trail_particlesys: HashMap<PlanetID, PlanetTrailParticleSys>,    // Tied to body id. Seperate from body since i may want effect to last after body is removed.
 
@@ -65,15 +61,33 @@ struct Model {
     id_counter: PlanetID,
 }
 
-impl Model {
-    fn new() -> Model {
-        Model {
+impl MainState {
+    fn new(_ctx: &mut Context) -> GameResult<MainState> {
+        let mut s = MainState {
             planets: HashMap::with_capacity(100),
             planet_trail_particlesys: HashMap::with_capacity(100),
             collided_planets: Vec::with_capacity(20),
 
             id_counter: 0,
-        }
+        };
+
+        s.add_planet(
+            Point2::new(200.0f64, 100.0),
+            Vector2::new(0.0f64, 0.0),
+            20.0,
+        );
+        s.add_planet(
+            Point2::new(300.0f64, 300.0),
+            Vector2::new(0.0f64, 0.0),
+            30.0,
+        );
+        s.add_planet(
+            Point2::new(40.0f64, 400.0),
+            Vector2::new(0.0f64, 0.0),
+            10.0,
+        );
+
+        Ok(s)
     }
 
     fn get_total_particle_count(&self) -> usize {
@@ -82,63 +96,6 @@ impl Model {
             count += p.particle_count();
         }
         count
-    }
-
-    fn update(&mut self, dt: f64, app_time: &Duration) {
-        println!("Particles: {}", self.get_total_particle_count());
-
-        self.remove_dead_particle_effects();
-        // Remove collided planets
-        self.remove_collided_planets();
-
-        let keys: Vec<&u32> = self.planets.keys().collect();
-
-        for i in 0..keys.len() {   // For each planet
-            let mut me = self.planets.get(keys[i]).unwrap().borrow_mut();
-            for j in i+1..keys.len() {  // For every other planet
-                let mut other = self.planets.get(keys[j]).unwrap().borrow_mut();
-
-                if Self::is_colliding(&me.pos, &other.pos, me.radius, other.radius) {
-                    //self.planets.remove(keys[j]);
-                    if me.radius < other.radius {
-                        other.collide(&me);
-                        self.collided_planets.push(*keys[i]);
-                    } else {
-                        me.collide(&other);
-                        self.collided_planets.push(*keys[j]);
-                    }
-                } else {
-                    let df1 = tools::newtonian_grav(
-                        me.mass, other.mass,
-                        &me.pos, &other.pos
-                    );
-
-                    me.res_force += df1;
-                    other.res_force -= df1; // Equal and opposite force
-                }
-            }
-            me.update_physics(dt);
-
-            // if planet has trail
-            if let Some(p_trail) = self.planet_trail_particlesys.get_mut(&me.id) {
-                p_trail.pos = me.pos;
-            }
-        }
-
-        for (_, sys) in self.planet_trail_particlesys.iter_mut() {
-            sys.update(dt, app_time);
-        }
-    }
-
-    fn display(&self, draw: &Draw, app_time: &Duration) {
-        // Display particles behind planets
-        for (_, sys) in self.planet_trail_particlesys.iter() {
-            sys.display(draw, app_time);
-        }
-
-        for (_, p) in self.planets.iter() {
-            p.borrow().display(draw);
-        }
     }
 
     fn add_planet(&mut self, pos: Point2<f64>, vel: Vector2<f64>, radius: f64) {
@@ -185,41 +142,78 @@ impl Model {
     }
 }
 
-fn model(_app: &App) -> Model {
-    let mut m = Model::new();
+impl event::EventHandler for MainState {
+    fn update(&mut self, ctx: &mut Context) -> GameResult {
+        let dt = timer::duration_to_f64(timer::delta(ctx));
+        let time_since_start = timer::time_since_start(ctx);
 
-    m.add_planet(
-        Point2::new(100.0f64, 100.0),
-        Vector2::new(0.0f64, 0.0),
-        20.0,
-    );
-    m.add_planet(
-        Point2::new(20.0f64, 100.0),
-        Vector2::new(0.0f64, 0.0),
-        30.0,
-    );
-    m.add_planet(
-        Point2::new(40.0f64, 400.0),
-        Vector2::new(0.0f64, 0.0),
-        10.0,
-    );
+        //println!("Particles: {}", self.get_total_particle_count());
 
-    m
+        self.remove_dead_particle_effects();
+        self.remove_collided_planets();
+
+        let keys: Vec<&u32> = self.planets.keys().collect();
+
+        for i in 0..keys.len() {   // For each planet
+            let mut me = self.planets.get(keys[i]).unwrap().borrow_mut();
+            for j in i+1..keys.len() {  // For every other planet
+                let mut other = self.planets.get(keys[j]).unwrap().borrow_mut();
+
+                if Self::is_colliding(&me.pos, &other.pos, me.radius, other.radius) {
+                    //self.planets.remove(keys[j]);
+                    if me.radius < other.radius {
+                        other.collide(&me);
+                        self.collided_planets.push(*keys[i]);
+                    } else {
+                        me.collide(&other);
+                        self.collided_planets.push(*keys[j]);
+                    }
+                } else {
+                    let df1 = tools::newtonian_grav(
+                        me.mass, other.mass,
+                        &me.pos, &other.pos
+                    );
+
+                    me.res_force += df1;
+                    other.res_force -= df1; // Equal and opposite force
+                }
+            }
+            me.update_physics(dt);
+
+            // if planet has trail
+            if let Some(p_trail) = self.planet_trail_particlesys.get_mut(&me.id) {
+                p_trail.pos = me.pos;
+            }
+        }
+
+        for (_, sys) in self.planet_trail_particlesys.iter_mut() {
+            sys.update(dt, &time_since_start);
+        }
+
+        Ok(())
+    }
+
+    fn draw(&mut self, ctx: &mut Context) -> GameResult {
+        let time_since_start = timer::time_since_start(ctx);
+        graphics::clear(ctx, [0.0, 0.0, 0.0, 1.0].into());
+
+        // Display particles behind planets
+        for (_, sys) in self.planet_trail_particlesys.iter() {
+            sys.draw(ctx, &time_since_start)?;
+        }
+
+        for (_, rc) in self.planets.iter() {
+            rc.borrow().draw(ctx)?;
+        }
+
+        graphics::present(ctx)?;
+        Ok(())
+    }
 }
 
-fn update(_app: &App, model: &mut Model, update: Update) {
-    let dt: f64 = update.since_last.secs();
-
-    //println!("{}", 1.0/dt);
-    model.update(dt, &update.since_start);
-}
-
-fn view(app: &App, model: &Model, frame: Frame) -> Frame {
-    let draw = app.draw();
-    draw.background().rgb(0.01, 0.01, 0.02);
-
-    model.display(&draw, &app.duration.since_start);
-
-    draw.to_frame(app, &frame).unwrap();
-    frame
+pub fn main() -> GameResult {
+    let cb = ggez::ContextBuilder::new("super_simple", "ggez");
+    let (ctx, event_loop) = &mut cb.build()?;
+    let state = &mut MainState::new(ctx)?;
+    event::run(ctx, event_loop, state)
 }

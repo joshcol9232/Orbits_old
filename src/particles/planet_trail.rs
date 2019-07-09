@@ -1,7 +1,11 @@
+use ggez::nalgebra as na;
 use na::{Point2, Vector2};
 use rand::{Rng, rngs::ThreadRng};
-use nannou::draw::Draw;
-use nannou::prelude::DurationF64;
+use ggez::{Context, GameResult};
+use ggez::graphics::{self, Mesh, DrawMode, DrawParam};
+use ggez::timer;
+// use nannou::draw::Draw;
+// use nannou::prelude::DurationF64;
 use std::time::Duration;
 
 use super::{ParticleSystem, Particle};
@@ -61,17 +65,25 @@ impl PlanetTrailParticleSys {
         }
     }
 
-    pub fn display(&self, draw: &Draw, current_time: &Duration) {
+    pub fn draw(&self, ctx: &mut Context, current_time: &Duration) -> GameResult {
         for p in self.particles.iter() {
             if p.time_created < *current_time {
-                let alpha: f64 = 1.0 - ((*current_time - p.time_created).secs()/p.lifetime.secs());
+                let alpha: f64 = 1.0 - (timer::duration_to_f64(*current_time - p.time_created)/timer::duration_to_f64(p.lifetime));
 
-                draw.ellipse()
-                    .radius(p.rad)
-                    .x_y(p.pos.x, p.pos.y)
-                    .rgba(0.5, 0.5, 1.0, alpha as f32);
+                let circ = Mesh::new_circle(
+                    ctx,
+                    DrawMode::fill(),
+                    Point2::new(0.0, 0.0),
+                    p.rad,
+                    0.05,
+                    [0.5, 0.5, 1.0, alpha as f32].into()
+                )?;
+
+                graphics::draw(ctx, &circ, DrawParam::default().dest(Point2::new(p.pos.x as f32, p.pos.y as f32)))?;
             }
         }
+
+        Ok(())
     }
 }
 

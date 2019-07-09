@@ -1,10 +1,10 @@
+use ggez::nalgebra as na;
+use ggez::graphics::{self, Mesh, DrawParam, DrawMode};
+use ggez::{Context, GameResult};
+
 use na::{
     Point2,
     Vector2,
-};
-use nannou::{
-    draw::Draw,
-    color::named
 };
 use std::fmt;
 use std::f64::consts::PI;
@@ -36,11 +36,23 @@ impl Planet {
         }
     }
 
-    pub fn display(&self, draw: &Draw) {
-        draw.ellipse()
-            .radius(self.radius as f32)
-            .x_y(self.pos.x as f32, self.pos.y as f32)
-            .rgb(0.7, 0.7, 0.6);
+    pub fn draw(&self, ctx: &mut Context) -> GameResult {
+        let circ = Mesh::new_circle(
+            ctx,
+            DrawMode::fill(),
+            Point2::new(0.0, 0.0),
+            self.radius as f32,
+            0.05,
+            graphics::WHITE
+        )?;
+
+        graphics::draw(
+            ctx,
+            &circ,
+            DrawParam::default().dest(Point2::new(self.pos.x as f32, self.pos.y as f32))
+        )?;
+
+        Ok(())
     }
 
     pub fn update_physics(&mut self, dt: f64) {

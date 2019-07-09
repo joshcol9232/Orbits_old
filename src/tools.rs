@@ -1,4 +1,4 @@
-use na::{Point2, Vector2};
+use ggez::nalgebra::{Point2, Vector2};
 
 use crate::GRAV_CONSTANT;
 
