@@ -1,7 +1,6 @@
 use na::{
     Point2,
-    Vector2,
-    RealField
+    Vector2
 };
 use nannou::{
     draw::Draw,
@@ -18,7 +17,8 @@ pub type BodyID = u32;
 pub struct Body {
     pub id: BodyID,
     pub body_type: BodyType,
-    pub mobile: BaseMobile<f64>, // Mobile component
+    pub pos: Point2<f64>,
+    vel: Vector2<f64>,
     pub radius: f64,
     pub mass: f64,
     pub res_force: Vector2<f64>,
@@ -29,7 +29,8 @@ impl Body {
         Body {
             id,
             body_type,
-            mobile: BaseMobile { pos, vel },
+            pos,
+            vel,
             radius,
             mass: if m <= 0.0 { Self::get_mass_from_radius(radius) } else { m },
             res_force: Vector2::new(0.0, 0.0),
@@ -45,8 +46,8 @@ impl Body {
 
     pub fn update_physics(&mut self, dt: f64) {
         // F/m = a
-        self.mobile.vel += (self.res_force / self.mass) * dt;
-        self.mobile.update_pos(dt);
+        self.vel += (self.res_force / self.mass) * dt;
+        self.pos += self.vel * dt;
         self.res_force = Vector2::new(0.0, 0.0);
     }
 
@@ -94,7 +95,7 @@ impl Eq for Body {}
 
 impl fmt::Debug for Body {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Body: {}", self.id)
+        write!(f, "{}", self.id)
     }
 }
 
@@ -102,12 +103,4 @@ impl fmt::Debug for Body {
 pub enum BodyType {
     Planet,
     Star,
-}
-
-pub trait Updateable {
-    fn draw(&self, draw: &Draw);
-}
-
-pub trait Displayable {
-
 }
