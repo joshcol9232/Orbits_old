@@ -13,8 +13,8 @@ use crate::Mobile;
 
 const PLANET_TRAIL_VEL_LIMITS: (f32, f32) = (-5.0, 5.0);
 const PLANET_TRAIL_RAD_LIMITS: (f32, f32) = (0.5, 3.0);
-const PLANET_TRAIL_MAX_LIFETIME: Duration = Duration::from_secs(3);
-const PLANET_TRAIL_EMMISION_PERIOD: f64 = 0.05; // Time between emmisions
+const PLANET_TRAIL_MAX_LIFETIME: Duration = Duration::from_millis(2500); // 2.5 secs
+const PLANET_TRAIL_EMMISION_PERIOD: f64 = 0.08; // Time between emmisions
 
 pub struct PlanetTrailParticleSys {
     particles: Vec<PlanetTrailParticle>,
