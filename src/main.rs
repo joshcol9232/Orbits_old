@@ -2,16 +2,28 @@ extern crate nannou;
 extern crate nalgebra as na;
 extern crate rand;
 
-mod body;
+#[macro_export]
+macro_rules! mobile_get_set_defaults {
+    ($t:ty) => {
+        fn pos(&self) -> &Point2<$t> { &self.pos }
+        fn pos_mut(&mut self) -> &mut Point2<$t> { &mut self.pos }
+        fn vel(&self) -> &Vector2<$t> { &self.vel }
+        fn vel_mut(&mut self) -> &mut Vector2<$t> { &mut self.vel }
+    };
+}
+
+mod planet;
 mod tools;
 mod particles;
 
-use crate::body::{Body, BodyType, BodyID};
-use crate::particles::{ParticleSystem, ParticleSysType};
+use crate::planet::{Planet, PlanetID};
+use crate::particles::planet_trail::PlanetTrailParticleSys;
+use crate::particles::ParticleSystem;
 
 use na::{
     Point2,
     Vector2,
+    RealField,
 };
 use nannou::{
     prelude::*,
@@ -32,18 +44,30 @@ fn main() {
         .run();
 }
 
-struct Model {
-    bodies: HashMap<BodyID, RefCell<Body>>, //Hashmap of ids
-    planet_trail_particlesys: HashMap<BodyID, ParticleSystem>,    // Tied to body id. Seperate from body since i may want effect to last after body is removed.
+// For mobile objects
+pub trait Mobile<T: RealField> {
+    fn pos(&self) -> &Point2<T>;
+    fn pos_mut(&mut self) -> &mut Point2<T>;
+    fn vel(&self) -> &Vector2<T>;
+    fn vel_mut(&mut self) -> &mut Vector2<T>;
 
-    collided_planets: Vec<BodyID>, // IDs
-    id_counter: BodyID,
+    fn update_pos(&mut self, dt: T) {
+        *self.pos_mut() += self.vel() * dt;
+    }
+}
+
+struct Model {
+    planets: HashMap<PlanetID, RefCell<Planet>>, //Hashmap of ids
+    planet_trail_particlesys: HashMap<PlanetID, PlanetTrailParticleSys>,    // Tied to body id. Seperate from body since i may want effect to last after body is removed.
+
+    collided_planets: Vec<PlanetID>, // IDs
+    id_counter: PlanetID,
 }
 
 impl Model {
     fn new() -> Model {
         Model {
-            bodies: HashMap::with_capacity(100),
+            planets: HashMap::with_capacity(100),
             planet_trail_particlesys: HashMap::with_capacity(100),
             collided_planets: Vec::with_capacity(20),
 
@@ -51,20 +75,30 @@ impl Model {
         }
     }
 
+    fn get_total_particle_count(&self) -> usize {
+        let mut count = 0;
+        for (_, p) in self.planet_trail_particlesys.iter() {
+            count += p.particle_count();
+        }
+        count
+    }
+
     fn update(&mut self, dt: f64, app_time: &Duration) {
+        println!("Particles: {}", self.get_total_particle_count());
+
         self.remove_dead_particle_effects();
         // Remove collided planets
         self.remove_collided_planets();
 
-        let keys: Vec<&u32> = self.bodies.keys().collect();
+        let keys: Vec<&u32> = self.planets.keys().collect();
 
         for i in 0..keys.len() {   // For each planet
-            let mut me = self.bodies.get(keys[i]).unwrap().borrow_mut();
+            let mut me = self.planets.get(keys[i]).unwrap().borrow_mut();
             for j in i+1..keys.len() {  // For every other planet
-                let mut other = self.bodies.get(keys[j]).unwrap().borrow_mut();
+                let mut other = self.planets.get(keys[j]).unwrap().borrow_mut();
 
                 if Self::is_colliding(&me.pos, &other.pos, me.radius, other.radius) {
-                    //self.bodies.remove(keys[j]);
+                    //self.planets.remove(keys[j]);
                     if me.radius < other.radius {
                         other.collide(&me);
                         self.collided_planets.push(*keys[i]);
@@ -101,20 +135,18 @@ impl Model {
             sys.display(draw, app_time);
         }
 
-        for (_, p) in self.bodies.iter() {
+        for (_, p) in self.planets.iter() {
             p.borrow().display(draw);
         }
     }
 
-    fn add_body(&mut self, body_type: BodyType, pos: Point2<f64>, vel: Vector2<f64>, radius: f64) {
-        self.bodies.insert(self.id_counter, RefCell::new(Body::new(self.id_counter, body_type, pos.clone(), vel, radius, 0.0)));
+    fn add_planet(&mut self, pos: Point2<f64>, vel: Vector2<f64>, radius: f64) {
+        self.planets.insert(self.id_counter, RefCell::new(Planet::new(self.id_counter, pos.clone(), vel, radius, 0.0)));
 
-        if body_type == BodyType::Planet {
-            self.planet_trail_particlesys.insert(
-                self.id_counter,
-                ParticleSystem::new(pos, ParticleSysType::PlanetTrail)
-            );
-        }
+        self.planet_trail_particlesys.insert(
+            self.id_counter,
+            PlanetTrailParticleSys::new(pos)
+        );
 
         self.id_counter = self.id_counter.wrapping_add(1);
     }
@@ -129,7 +161,7 @@ impl Model {
             }
 
             let temp_c = self.collided_planets.clone();
-            self.bodies.retain(|key, _| {
+            self.planets.retain(|key, _| {
                 !temp_c.contains(&key)
             });
 
@@ -155,20 +187,17 @@ impl Model {
 fn model(_app: &App) -> Model {
     let mut m = Model::new();
 
-    m.add_body(
-        BodyType::Planet,
+    m.add_planet(
         Point2::new(100.0f64, 100.0),
         Vector2::new(0.0f64, 0.0),
         20.0,
     );
-    m.add_body(
-        BodyType::Planet,
+    m.add_planet(
         Point2::new(20.0f64, 100.0),
         Vector2::new(0.0f64, 0.0),
         30.0,
     );
-    m.add_body(
-        BodyType::Planet,
+    m.add_planet(
         Point2::new(40.0f64, 400.0),
         Vector2::new(0.0f64, 0.0),
         10.0,

@@ -1,6 +1,7 @@
 use na::{
     Point2,
-    Vector2
+    Vector2,
+    RealField
 };
 use nannou::{
     draw::Draw,
@@ -8,15 +9,15 @@ use nannou::{
 };
 use std::fmt;
 use std::f64::consts::PI;
+use crate::Mobile;
 
 pub const PL_DENSITY: f64 = 5000.0;
 
-pub type BodyID = u32;
+pub type PlanetID = u32;
 
 #[derive(Clone)]
-pub struct Body {
-    pub id: BodyID,
-    pub body_type: BodyType,
+pub struct Planet {
+    pub id: PlanetID,
     pub pos: Point2<f64>,
     vel: Vector2<f64>,
     pub radius: f64,
@@ -24,11 +25,10 @@ pub struct Body {
     pub res_force: Vector2<f64>,
 }
 
-impl Body {
-    pub fn new(id: BodyID, body_type: BodyType, pos: Point2<f64>, vel: Vector2<f64>, radius: f64, m: f64) -> Body {
-        Body {
+impl Planet {
+    pub fn new(id: PlanetID, pos: Point2<f64>, vel: Vector2<f64>, radius: f64, m: f64) -> Planet {
+        Planet {
             id,
-            body_type,
             pos,
             vel,
             radius,
@@ -85,22 +85,20 @@ impl Body {
     }
 }
 
-impl PartialEq for Body {
+impl Mobile<f64> for Planet {
+    mobile_get_set_defaults!(f64);
+}
+
+impl PartialEq for Planet {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl Eq for Body {}
+impl Eq for Planet {}
 
-impl fmt::Debug for Body {
+impl fmt::Debug for Planet {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.id)
     }
-}
-
-#[derive(Clone, Copy, Eq, PartialEq)]
-pub enum BodyType {
-    Planet,
-    Star,
 }
