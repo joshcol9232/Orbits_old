@@ -1,7 +1,6 @@
 use na::{
     Point2,
     Vector2,
-    RealField
 };
 use nannou::{
     draw::Draw,

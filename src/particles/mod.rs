@@ -1,7 +1,4 @@
 
-#[macro_use]
-
-use na::{Point2, Vector2};
 use std::time::Duration;
 
 #[macro_export]
@@ -32,14 +29,6 @@ macro_rules! particle_set_get_defaults {
 
 pub mod planet_trail;
 
-use nannou::draw::Draw;
-use nannou::color::{self, named};
-use nannou::time::DurationF64;
-
-const PLANET_TRAIL_VEL_LIMITS: (f32, f32) = (-5.0, 5.0);
-const PLANET_TRAIL_RAD_LIMITS: (f32, f32) = (0.5, 2.0);
-const PLANET_TRAIL_MAX_LIFETIME: Duration = Duration::from_secs(2);
-const PLANET_TRAIL_EMMISION_PERIOD: f64 = 0.05;    // Time between emmisions
 
 pub trait ParticleSystem {
     // Updates particles and decides whever to emit again

@@ -52,7 +52,8 @@ pub trait Mobile<T: RealField> {
     fn vel_mut(&mut self) -> &mut Vector2<T>;
 
     fn update_pos(&mut self, dt: T) {
-        *self.pos_mut() += self.vel() * dt;
+        let vel = *self.vel();
+        *self.pos_mut() += vel * dt;
     }
 }
 
@@ -206,7 +207,7 @@ fn model(_app: &App) -> Model {
     m
 }
 
-fn update(app: &App, model: &mut Model, update: Update) {
+fn update(_app: &App, model: &mut Model, update: Update) {
     let dt: f64 = update.since_last.secs();
 
     //println!("{}", 1.0/dt);
