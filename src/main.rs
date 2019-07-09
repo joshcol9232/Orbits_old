@@ -216,7 +216,7 @@ fn update(_app: &App, model: &mut Model, update: Update) {
 
 fn view(app: &App, model: &Model, frame: Frame) -> Frame {
     let draw = app.draw();
-    draw.background().color(color::named::BLACK);
+    draw.background().rgb(0.01, 0.01, 0.02);
 
     model.display(&draw, &app.duration.since_start);
 

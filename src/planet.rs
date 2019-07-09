@@ -40,7 +40,7 @@ impl Planet {
         draw.ellipse()
             .radius(self.radius as f32)
             .x_y(self.pos.x as f32, self.pos.y as f32)
-            .color(named::WHITE);
+            .rgb(0.7, 0.7, 0.6);
     }
 
     pub fn update_physics(&mut self, dt: f64) {

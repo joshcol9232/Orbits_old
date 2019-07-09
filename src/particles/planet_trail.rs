@@ -9,7 +9,7 @@ use crate::Mobile;
 
 const PLANET_TRAIL_VEL_LIMITS: (f32, f32) = (-5.0, 5.0);
 const PLANET_TRAIL_RAD_LIMITS: (f32, f32) = (0.5, 3.0);
-const PLANET_TRAIL_MAX_LIFETIME: Duration = Duration::from_secs(2);
+const PLANET_TRAIL_MAX_LIFETIME: Duration = Duration::from_secs(3);
 const PLANET_TRAIL_EMMISION_PERIOD: f64 = 0.05; // Time between emmisions
 
 pub struct PlanetTrailParticleSys {
@@ -23,7 +23,7 @@ pub struct PlanetTrailParticleSys {
 impl PlanetTrailParticleSys {
     pub fn new(pos: Point2<f64>) -> PlanetTrailParticleSys {
         let mut p = PlanetTrailParticleSys {
-            particles: Vec::with_capacity(41),
+            particles: Vec::with_capacity(61),
             pos,
             rand_thread: rand::thread_rng(),
             emmision_timer: 0.0,
@@ -69,7 +69,7 @@ impl PlanetTrailParticleSys {
                 draw.ellipse()
                     .radius(p.rad)
                     .x_y(p.pos.x, p.pos.y)
-                    .rgba(0.0, 0.0, 1.0, alpha as f32);
+                    .rgba(0.5, 0.5, 1.0, alpha as f32);
             }
         }
     }
