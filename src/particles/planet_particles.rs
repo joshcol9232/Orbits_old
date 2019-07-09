@@ -13,55 +13,49 @@ use crate::Mobile;
 
 const PLANET_TRAIL_VEL_LIMITS: (f32, f32) = (-5.0, 5.0);
 const PLANET_TRAIL_RAD_LIMITS: (f32, f32) = (0.5, 3.0);
-const PLANET_TRAIL_MAX_LIFETIME: Duration = Duration::from_millis(2500); // 2.5 secs
+const PLANET_TRAIL_LIFETIME: Duration = Duration::from_millis(2500); // 2.5 secs
 const PLANET_TRAIL_EMMISION_PERIOD: f64 = 0.08; // Time between emmisions
 
 pub struct PlanetTrailParticleSys {
     particles: Vec<PlanetTrailParticle>,
-    pub pos: Point2<f64>,
     rand_thread: ThreadRng,
     emmision_timer: f64,
     pub dead: bool,
 }
 
 impl PlanetTrailParticleSys {
-    pub fn new(pos: Point2<f64>) -> PlanetTrailParticleSys {
+    pub fn new() -> PlanetTrailParticleSys {
         let mut p = PlanetTrailParticleSys {
             particles: Vec::with_capacity(61),
-            pos,
             rand_thread: rand::thread_rng(),
             emmision_timer: 0.0,
             dead: false,
         };
 
-        p.add_particle(&Duration::new(0, 0));
+        p.add_particle(&Duration::new(0, 0), &Point2::new(0.0, 0.0));
 
         p
     }
 
-    pub fn get_particle_count(&self) -> usize {
-        self.particles.len()
-    }
-
-    fn add_particle(&mut self, current_time: &Duration) {
+    fn add_particle(&mut self, current_time: &Duration, pos: &Point2<f64>) {
         self.particles.push(
             PlanetTrailParticle::new(
-                Point2::new(self.pos.x as f32, self.pos.y as f32),
+                Point2::new(pos.x as f32, pos.y as f32),
                 Vector2::new(
                     self.rand_thread.gen_range(PLANET_TRAIL_VEL_LIMITS.0, PLANET_TRAIL_VEL_LIMITS.1),
                     self.rand_thread.gen_range(PLANET_TRAIL_VEL_LIMITS.0, PLANET_TRAIL_VEL_LIMITS.1)
                 ),
                 self.rand_thread.gen_range(PLANET_TRAIL_RAD_LIMITS.0, PLANET_TRAIL_RAD_LIMITS.1),
                 current_time.clone(),
-                PLANET_TRAIL_MAX_LIFETIME
+                PLANET_TRAIL_LIFETIME
             )
         );
     }
 
     #[inline]
-    fn emit(&mut self, amount: usize, current_time: &Duration) {
+    fn emit(&mut self, amount: usize, current_time: &Duration, pos: &Point2<f64>) {
         for _ in 0..amount {
-            self.add_particle(current_time);
+            self.add_particle(current_time, pos);
         }
     }
 
@@ -85,12 +79,9 @@ impl PlanetTrailParticleSys {
 
         Ok(())
     }
-}
 
-impl ParticleSystem for PlanetTrailParticleSys {
-    particle_system_defaults!();
 
-    fn update(&mut self, dt: f64, current_time: &Duration) {
+    pub fn update(&mut self, dt: f64, current_time: &Duration, pos: &Point2<f64>) {
         self.kill_particles(current_time);
         for p in self.particles.iter_mut() {
             p.update_pos(dt as f32);
@@ -103,10 +94,14 @@ impl ParticleSystem for PlanetTrailParticleSys {
                 let num = (self.emmision_timer/PLANET_TRAIL_EMMISION_PERIOD).round();
                 self.emmision_timer -= PLANET_TRAIL_EMMISION_PERIOD * num;
 
-                self.emit(num as usize, current_time);
+                self.emit(num as usize, current_time, pos);
             }
         }
     }
+}
+
+impl ParticleSystem for PlanetTrailParticleSys {
+    particle_system_defaults!();
 }
 
 struct PlanetTrailParticle {

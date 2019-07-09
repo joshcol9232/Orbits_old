@@ -26,12 +26,11 @@ macro_rules! particle_set_get_defaults {
     };
 }
 
-pub mod planet_trail;
+pub mod planet_particles;
 
 
 pub trait ParticleSystem {
     // Updates particles and decides whever to emit again
-    fn update(&mut self, dt: f64, current_time: &Duration);
     fn kill_particles(&mut self, current_time: &Duration);
 
     fn particle_count(&self) -> usize;

@@ -1,20 +1,15 @@
-use ggez::nalgebra::{Point2, Vector2, RealField};
+use ggez::nalgebra as na;
+use na::{Point2, Vector2, RealField};
 
 use crate::GRAV_CONSTANT;
 
 #[inline]
-pub fn distance_squared_to<T>(my_pos: &Point2<T>, other_pos: &Point2<T>) -> T
-where
-    T: RealField
-{
+pub fn distance_squared_to<T: RealField>(my_pos: &Point2<T>, other_pos: &Point2<T>) -> T {
     (other_pos.x - my_pos.x).powi(2) + (other_pos.y - my_pos.y).powi(2)
 }
 
 #[inline]
-pub fn distance_to<T>(my_pos: &Point2<T>, other_pos: &Point2<T>) -> T
-where
-    T: RealField
-{
+pub fn distance_to<T: RealField>(my_pos: &Point2<T>, other_pos: &Point2<T>) -> T {
     distance_squared_to(my_pos, other_pos).sqrt()
 }
 

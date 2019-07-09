@@ -1,6 +1,7 @@
 use ggez::nalgebra as na;
 use ggez::graphics::{self, Mesh, DrawParam, DrawMode};
 use ggez::{Context, GameResult};
+use ggez::timer;
 
 use na::{
     Point2,
@@ -8,9 +9,16 @@ use na::{
 };
 use std::fmt;
 use std::f64::consts::PI;
-use crate::Mobile;
+use std::time::Duration;
+use crate::{
+    Mobile,
+    particles::planet_particles::PlanetTrailParticleSys,
+    particles::ParticleSystem,
+};
 
 pub const PL_DENSITY: f64 = 5000.0;
+const TRAIL_PLACEMENT_PERIOD: f64 = 0.1;
+const TRAIL_NODE_LIFETIME: Duration = Duration::from_secs(2);
 
 pub type PlanetID = u32;
 
@@ -112,4 +120,94 @@ impl fmt::Debug for Planet {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.id)
     }
+}
+
+pub struct PlanetTrail {
+    pub pos: Point2<f64>,   // Not a reference to planet pos, since i want it to live longer than planet
+    pub dead: bool,
+    particles: PlanetTrailParticleSys,
+    linear_trail: Vec<TrailNode>,
+    linear_node_placement_timer: f64,
+}
+
+impl PlanetTrail {
+    pub fn new(pos: Point2<f64>) -> PlanetTrail {
+        let mut p = PlanetTrail {
+            pos,
+            dead: false,
+            particles: PlanetTrailParticleSys::new(),
+            linear_trail: Vec::with_capacity(60),
+            linear_node_placement_timer: 0.0,
+        };
+
+        p
+    }
+
+    pub fn update(&mut self, dt: f64, current_time: &Duration) {
+        self.dead = self.particles.dead && self.linear_trail.len() == 0;
+
+        self.linear_node_placement_timer += dt;
+        self.particles.update(dt, current_time, &self.pos);
+        self.kill_dead_nodes(current_time);
+
+        if self.linear_node_placement_timer >= TRAIL_PLACEMENT_PERIOD {
+            let num = (self.linear_node_placement_timer/TRAIL_PLACEMENT_PERIOD).round();
+            self.linear_node_placement_timer -= TRAIL_PLACEMENT_PERIOD * num;
+            self.place_node(current_time);
+        }
+    }
+
+    pub fn draw(&self, ctx: &mut Context, current_time: &Duration) -> GameResult {
+        self.particles.draw(ctx, current_time)?;
+        if self.linear_trail.len() > 0 {
+            println!("Drawing trail");
+            self.draw_line(ctx, current_time)?;
+        }
+        Ok(())
+    }
+
+    fn draw_line(&self, ctx: &mut Context, current_time: &Duration) -> GameResult {
+        let trail_lifetime_float = timer::duration_to_f64(TRAIL_NODE_LIFETIME);
+        
+        for i in 0..self.linear_trail.len()-1 {
+            let alpha = 1.0 - timer::duration_to_f64(*current_time - self.linear_trail[i].time_created)/trail_lifetime_float;
+            let line_mesh = Mesh::new_line(
+                ctx,
+                &[self.linear_trail[i].pos, self.linear_trail[i+1].pos],
+                2.0,
+                [0.0, 0.0, 1.0, alpha as f32].into()
+            )?;
+
+            graphics::draw(ctx, &line_mesh, DrawParam::default())?;
+        }
+        Ok(())
+    }
+
+    fn place_node(&mut self, current_time: &Duration) {
+        self.linear_trail.push(TrailNode {
+            pos: Point2::new(self.pos.x as f32, self.pos.y as f32),
+            time_created: current_time.clone(),
+        });
+    }
+
+    #[inline]
+    fn kill_dead_nodes(&mut self, current_time: &Duration) {
+        self.linear_trail.retain(|n| *current_time - n.time_created >= TRAIL_NODE_LIFETIME);
+    }
+
+    #[inline]
+    pub fn particle_count(&self) -> usize {
+        self.particles.particle_count()
+    }
+
+
+}
+
+struct TrailNode {
+    pos: Point2<f32>,
+    time_created: Duration,
+}
+
+impl Into<Point2<f32>> for TrailNode {
+    fn into(self) -> Point2<f32> { self.pos }
 }

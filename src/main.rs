@@ -18,27 +18,31 @@ macro_rules! mobile_get_set_defaults {
 mod planet;
 mod tools;
 mod particles;
+mod mouse;
 
-use ggez::graphics::{self, DrawParam, DrawMode, Mesh};
-use ggez::nalgebra as na;
-use ggez::{Context, GameResult};
-use ggez::timer;
-use ggez::event::{self, MouseButton};
-
-use crate::planet::{Planet, PlanetID};
-use crate::particles::planet_trail::PlanetTrailParticleSys;
-use crate::particles::ParticleSystem;
-
+use ggez::{
+    Context, GameResult,
+    timer,
+    nalgebra as na,
+    graphics::{self, DrawParam, DrawMode, Mesh},
+    event::{self, MouseButton},
+};
 use na::{
     Point2,
     Vector2,
     RealField,
 };
+
 use std::collections::HashMap;
 use std::cell::RefCell;
 
-pub const GRAV_CONSTANT: f64 = 0.001;
+use crate::{
+    planet::{Planet, PlanetID, PlanetTrail},
+    mouse::MouseInfo,
+};
 
+
+pub const GRAV_CONSTANT: f64 = 0.001;
 
 // For mobile objects
 pub trait Mobile<T: RealField> {
@@ -53,39 +57,9 @@ pub trait Mobile<T: RealField> {
     }
 }
 
-struct MouseInfo {
-    pub down: bool,
-    pub down_pos: Point2<f32>,
-    pub current_drag_position: Point2<f32>,
-}
-
-impl MouseInfo {
-    pub fn draw_mouse_drag(&self, ctx: &mut Context) -> GameResult {
-        let line = Mesh::new_line(
-            ctx,
-            &[self.down_pos, self.current_drag_position],
-            1.0,
-            [0.0, 1.0, 0.0, 1.0].into()
-        )?;
-        graphics::draw(ctx, &line, DrawParam::default())?;
-
-        Ok(())
-    }
-}
-
-impl Default for MouseInfo {
-    fn default() -> MouseInfo {
-        MouseInfo {
-            down: false,
-            down_pos: Point2::new(0.0, 0.0),
-            current_drag_position: Point2::new(1.0, 0.0),
-        }
-    }
-}
-
 struct MainState {
     planets: HashMap<PlanetID, RefCell<Planet>>, //Hashmap of ids
-    planet_trail_particlesys: HashMap<PlanetID, PlanetTrailParticleSys>,    // Tied to body id. Seperate from body since i may want effect to last after body is removed.
+    planet_trails: HashMap<PlanetID, PlanetTrail>,    // Tied to body id. Seperate from body since i may want effect to last after body is removed.
 
     collided_planets: Vec<PlanetID>, // IDs
     id_counter: PlanetID,
@@ -97,7 +71,7 @@ impl MainState {
     fn new(_ctx: &mut Context) -> GameResult<MainState> {
         let mut s = MainState {
             planets: HashMap::with_capacity(100),
-            planet_trail_particlesys: HashMap::with_capacity(100),
+            planet_trails: HashMap::with_capacity(100),
             collided_planets: Vec::with_capacity(20),
 
             id_counter: 0,
@@ -127,9 +101,9 @@ impl MainState {
     fn add_planet(&mut self, pos: Point2<f64>, vel: Vector2<f64>, radius: f64) {
         self.planets.insert(self.id_counter, RefCell::new(Planet::new(self.id_counter, pos.clone(), vel, radius, 0.0)));
 
-        self.planet_trail_particlesys.insert(
+        self.planet_trails.insert(
             self.id_counter,
-            PlanetTrailParticleSys::new(pos)
+            PlanetTrail::new(pos)
         );
 
         self.id_counter = self.id_counter.wrapping_add(1);
@@ -139,7 +113,7 @@ impl MainState {
         if self.collided_planets.len() > 0 {
             // Sort out the planet's particle system
             for key in self.collided_planets.iter() {
-                if let Some(sys) = self.planet_trail_particlesys.get_mut(key) {
+                if let Some(sys) = self.planet_trails.get_mut(key) {
                     sys.dead = true;
                 }
             }
@@ -155,7 +129,7 @@ impl MainState {
 
     #[inline]
     fn remove_dead_particle_effects(&mut self) {
-        self.planet_trail_particlesys.retain(|_, sys| !sys.dead || sys.get_particle_count() > 0);
+        self.planet_trails.retain(|_, sys| !sys.dead);
     }
 
     fn is_colliding(p1: &Point2<f64>, p2: &Point2<f64>, r1: f64, r2: f64) -> bool {
@@ -169,7 +143,7 @@ impl MainState {
 
     fn get_total_particle_count(&self) -> usize {
         let mut count = 0;
-        for (_, p) in self.planet_trail_particlesys.iter() {
+        for (_, p) in self.planet_trails.iter() {
             count += p.particle_count();
         }
         count
@@ -235,13 +209,13 @@ impl event::EventHandler for MainState {
             me.update_physics(dt);
 
             // if planet has trail
-            if let Some(p_trail) = self.planet_trail_particlesys.get_mut(&me.id) {
+            if let Some(p_trail) = self.planet_trails.get_mut(&me.id) {
                 p_trail.pos = me.pos;
             }
         }
 
-        for (_, sys) in self.planet_trail_particlesys.iter_mut() {
-            sys.update(dt, &time_since_start);
+        for (_, trail_sys) in self.planet_trails.iter_mut() {
+            trail_sys.update(dt, &time_since_start);
         }
 
         Ok(())
@@ -252,7 +226,7 @@ impl event::EventHandler for MainState {
         graphics::clear(ctx, [0.0, 0.0, 0.0, 1.0].into());
 
         // Display particles behind planets
-        for (_, sys) in self.planet_trail_particlesys.iter() {
+        for (_, sys) in self.planet_trails.iter() {
             sys.draw(ctx, &time_since_start)?;
         }
 
@@ -288,7 +262,18 @@ impl event::EventHandler for MainState {
 }
 
 pub fn main() -> GameResult {
-    let cb = ggez::ContextBuilder::new("super_simple", "ggez");
+    use ggez::conf::{WindowSetup, NumSamples};
+
+    let cb = ggez::ContextBuilder::new("Planets", "eggmund")
+        .window_setup(WindowSetup {
+            title: "Planets".to_owned(),
+            samples: NumSamples::Eight,
+            vsync: true,
+            transparent: false,
+            icon: "".to_owned(),
+            srgb: true,
+        });
+
     let (ctx, event_loop) = &mut cb.build()?;
     let state = &mut MainState::new(ctx)?;
     event::run(ctx, event_loop, state)
