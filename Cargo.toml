@@ -1,5 +1,5 @@
 [package]
-name = "Planets"
+name = "Orbits"
 version = "0.1.0"
 authors = ["eggmund <joshuacolclough2@googlemail.com>"]
 edition = "2018"
