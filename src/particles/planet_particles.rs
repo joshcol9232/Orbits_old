@@ -61,7 +61,7 @@ impl PlanetTrailParticleSys {
 
     pub fn draw(&self, ctx: &mut Context, current_time: &Duration) -> GameResult {
         for p in self.particles.iter() {
-            if p.time_created < *current_time {
+            if *current_time > p.time_created {
                 let alpha: f64 = 1.0 - (timer::duration_to_f64(*current_time - p.time_created)/timer::duration_to_f64(p.lifetime));
 
                 let circ = Mesh::new_circle(
@@ -83,6 +83,7 @@ impl PlanetTrailParticleSys {
 
     pub fn update(&mut self, dt: f64, current_time: &Duration, pos: &Point2<f64>) {
         self.kill_particles(current_time);
+        
         for p in self.particles.iter_mut() {
             p.update_pos(dt as f32);
         }

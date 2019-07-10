@@ -114,7 +114,10 @@ impl MainState {
             // Sort out the planet's particle system
             for key in self.collided_planets.iter() {
                 if let Some(sys) = self.planet_trails.get_mut(key) {
-                    sys.dead = true;
+                    // If the planet no longer exists, then set the particle system to dead. 
+                    // If the particle system is dead, it will no longer emit, but will be removed when
+                    // all nodes/particles have faded (see `remove_dead_planet_trails`).
+                    sys.set_is_dead(true);
                 }
             }
 
@@ -128,8 +131,9 @@ impl MainState {
     }
 
     #[inline]
-    fn remove_dead_particle_effects(&mut self) {
-        self.planet_trails.retain(|_, sys| !sys.dead);
+    fn remove_dead_planet_trails(&mut self) {
+        // > 1 nodes needed to draw a line
+        self.planet_trails.retain(|_, sys| !sys.particles_dead() || sys.particle_count() > 0 || sys.node_count() > 1);
     }
 
     fn is_colliding(p1: &Point2<f64>, p2: &Point2<f64>, r1: f64, r2: f64) -> bool {
@@ -177,7 +181,7 @@ impl event::EventHandler for MainState {
 
         //println!("Particles: {}", self.get_total_particle_count());
 
-        self.remove_dead_particle_effects();
+        self.remove_dead_planet_trails();
         self.remove_collided_planets();
 
         let keys: Vec<&u32> = self.planets.keys().collect();
@@ -234,7 +238,7 @@ impl event::EventHandler for MainState {
             rc.borrow().draw(ctx)?;
         }
 
-        if self.mouse_info.down && tools::distance_to(&self.mouse_info.down_pos, &self.mouse_info.current_drag_position) > 1.0 {
+        if self.mouse_info.down && tools::distance_squared_to(&self.mouse_info.down_pos, &self.mouse_info.current_drag_position) >= 4.0 {
             self.mouse_info.draw_mouse_drag(ctx)?;
             self.draw_fake_planet(ctx, self.mouse_info.down_pos, 5.0)?;
         }

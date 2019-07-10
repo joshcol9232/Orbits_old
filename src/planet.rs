@@ -140,27 +140,36 @@ impl PlanetTrail {
             linear_node_placement_timer: 0.0,
         };
 
+        // Add some useless nodes that will be removed, but will keep trail alive for it's first update.
+        p.linear_trail.push(TrailNode {
+            pos: Point2::new(0.0, 0.0),
+            time_created: Duration::new(0, 0),
+        });
+        p.linear_trail.push(TrailNode {
+            pos: Point2::new(1.0, 0.0),
+            time_created: Duration::new(0, 0),
+        });
+
         p
     }
 
     pub fn update(&mut self, dt: f64, current_time: &Duration) {
-        self.dead = self.particles.dead && self.linear_trail.len() == 0;
-
-        self.linear_node_placement_timer += dt;
-        self.particles.update(dt, current_time, &self.pos);
         self.kill_dead_nodes(current_time);
+        self.particles.update(dt, current_time, &self.pos);
 
-        if self.linear_node_placement_timer >= TRAIL_PLACEMENT_PERIOD {
-            let num = (self.linear_node_placement_timer/TRAIL_PLACEMENT_PERIOD).round();
-            self.linear_node_placement_timer -= TRAIL_PLACEMENT_PERIOD * num;
-            self.place_node(current_time);
+        if !self.particles.dead {
+            self.linear_node_placement_timer += dt;
+            if self.linear_node_placement_timer >= TRAIL_PLACEMENT_PERIOD {
+                let num = (self.linear_node_placement_timer/TRAIL_PLACEMENT_PERIOD).round();
+                self.linear_node_placement_timer -= TRAIL_PLACEMENT_PERIOD * num;
+                self.place_node(current_time);
+            }
         }
     }
 
     pub fn draw(&self, ctx: &mut Context, current_time: &Duration) -> GameResult {
         self.particles.draw(ctx, current_time)?;
-        if self.linear_trail.len() > 0 {
-            println!("Drawing trail");
+        if self.linear_trail.len() > 1 {
             self.draw_line(ctx, current_time)?;
         }
         Ok(())
@@ -170,15 +179,17 @@ impl PlanetTrail {
         let trail_lifetime_float = timer::duration_to_f64(TRAIL_NODE_LIFETIME);
         
         for i in 0..self.linear_trail.len()-1 {
-            let alpha = 1.0 - timer::duration_to_f64(*current_time - self.linear_trail[i].time_created)/trail_lifetime_float;
-            let line_mesh = Mesh::new_line(
-                ctx,
-                &[self.linear_trail[i].pos, self.linear_trail[i+1].pos],
-                2.0,
-                [0.0, 0.0, 1.0, alpha as f32].into()
-            )?;
+            if self.linear_trail[i].time_created < *current_time {
+                let alpha = 1.0 - timer::duration_to_f64(*current_time - self.linear_trail[i].time_created)/trail_lifetime_float;
+                let line_mesh = Mesh::new_line(
+                    ctx,
+                    &[self.linear_trail[i].pos, self.linear_trail[i+1].pos],
+                    2.0,
+                    [0.0, 0.0, 1.0, alpha as f32].into()
+                )?;
 
-            graphics::draw(ctx, &line_mesh, DrawParam::default())?;
+                graphics::draw(ctx, &line_mesh, DrawParam::default())?;
+            }
         }
         Ok(())
     }
@@ -192,7 +203,7 @@ impl PlanetTrail {
 
     #[inline]
     fn kill_dead_nodes(&mut self, current_time: &Duration) {
-        self.linear_trail.retain(|n| *current_time - n.time_created >= TRAIL_NODE_LIFETIME);
+        self.linear_trail.retain(|n| (*current_time - n.time_created <= TRAIL_NODE_LIFETIME) && (n.time_created > Duration::new(0, 0)));
     }
 
     #[inline]
@@ -200,7 +211,21 @@ impl PlanetTrail {
         self.particles.particle_count()
     }
 
+    #[inline]
+    pub fn set_is_dead(&mut self, d: bool) {
+        self.dead = d;
+        self.particles.dead = d;
+    }
 
+    #[inline]
+    pub fn particles_dead(&self) -> bool {
+        self.particles.dead
+    }
+
+    #[inline]
+    pub fn node_count(&self) -> usize {
+        self.linear_trail.len()
+    }
 }
 
 struct TrailNode {
