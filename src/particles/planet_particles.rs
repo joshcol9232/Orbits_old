@@ -20,16 +20,16 @@ pub struct PlanetTrailParticleSys {
     particles: Vec<PlanetTrailParticle>,
     rand_thread: ThreadRng,
     emmision_timer: f64,
-    pub dead: bool,
+    pub parent_dead: bool,
 }
 
 impl PlanetTrailParticleSys {
     pub fn new() -> PlanetTrailParticleSys {
         let mut p = PlanetTrailParticleSys {
-            particles: Vec::with_capacity(61),
+            particles: Vec::with_capacity(32),
             rand_thread: rand::thread_rng(),
             emmision_timer: 0.0,
-            dead: false,
+            parent_dead: false,
         };
 
         p.add_particle(&Duration::new(0, 0), &Point2::new(0.0, 0.0));
@@ -61,7 +61,7 @@ impl PlanetTrailParticleSys {
 
     pub fn draw(&self, ctx: &mut Context, current_time: &Duration) -> GameResult {
         for p in self.particles.iter() {
-            if *current_time > p.time_created {
+            if p.time_created > Duration::new(0, 0) {
                 let alpha: f64 = 1.0 - (timer::duration_to_f64(*current_time - p.time_created)/timer::duration_to_f64(p.lifetime));
 
                 let circ = Mesh::new_circle(
@@ -70,7 +70,11 @@ impl PlanetTrailParticleSys {
                     Point2::new(0.0, 0.0),
                     p.rad,
                     0.05,
-                    [0.5, 0.5, 1.0, alpha as f32].into()
+                    /* Particle colour:
+                        -- Pinkish d824e5
+                        -- Mint/Green 23ddaf
+                    */
+                    [0.13671875, 0.86328125, 0.68359375, alpha as f32].into()
                 )?;
 
                 graphics::draw(ctx, &circ, DrawParam::default().dest(Point2::new(p.pos.x as f32, p.pos.y as f32)))?;
@@ -88,7 +92,7 @@ impl PlanetTrailParticleSys {
             p.update_pos(dt as f32);
         }
 
-        if !self.dead {
+        if !self.parent_dead {
             self.emmision_timer += dt;
 
             if self.emmision_timer >= PLANET_TRAIL_EMMISION_PERIOD {

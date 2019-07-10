@@ -17,7 +17,7 @@ use crate::{
 };
 
 pub const PL_DENSITY: f64 = 5000.0;
-const TRAIL_PLACEMENT_PERIOD: f64 = 0.1;
+const TRAIL_PLACEMENT_PERIOD: f64 = 0.05;
 const TRAIL_NODE_LIFETIME: Duration = Duration::from_secs(2);
 
 pub type PlanetID = u32;
@@ -124,7 +124,7 @@ impl fmt::Debug for Planet {
 
 pub struct PlanetTrail {
     pub pos: Point2<f64>,   // Not a reference to planet pos, since i want it to live longer than planet
-    pub dead: bool,
+    pub parent_dead: bool,
     particles: PlanetTrailParticleSys,
     linear_trail: Vec<TrailNode>,
     linear_node_placement_timer: f64,
@@ -134,9 +134,9 @@ impl PlanetTrail {
     pub fn new(pos: Point2<f64>) -> PlanetTrail {
         let mut p = PlanetTrail {
             pos,
-            dead: false,
+            parent_dead: false,
             particles: PlanetTrailParticleSys::new(),
-            linear_trail: Vec::with_capacity(60),
+            linear_trail: Vec::with_capacity(41),
             linear_node_placement_timer: 0.0,
         };
 
@@ -157,7 +157,9 @@ impl PlanetTrail {
         self.kill_dead_nodes(current_time);
         self.particles.update(dt, current_time, &self.pos);
 
-        if !self.particles.dead {
+        println!("Number of particles: {}", self.particle_count());
+
+        if !self.particles.parent_dead {
             self.linear_node_placement_timer += dt;
             if self.linear_node_placement_timer >= TRAIL_PLACEMENT_PERIOD {
                 let num = (self.linear_node_placement_timer/TRAIL_PLACEMENT_PERIOD).round();
@@ -179,13 +181,17 @@ impl PlanetTrail {
         let trail_lifetime_float = timer::duration_to_f64(TRAIL_NODE_LIFETIME);
         
         for i in 0..self.linear_trail.len()-1 {
-            if self.linear_trail[i].time_created < *current_time {
+            if self.linear_trail[i].time_created > Duration::new(0, 0) {
                 let alpha = 1.0 - timer::duration_to_f64(*current_time - self.linear_trail[i].time_created)/trail_lifetime_float;
                 let line_mesh = Mesh::new_line(
                     ctx,
                     &[self.linear_trail[i].pos, self.linear_trail[i+1].pos],
                     2.0,
-                    [0.0, 0.0, 1.0, alpha as f32].into()
+                    /* Line colour:
+                        -- Pink 7824e5
+                        -- Blue 23afdd
+                    */
+                    [0.13671875, 0.68359375, 0.86328125, alpha as f32].into()
                 )?;
 
                 graphics::draw(ctx, &line_mesh, DrawParam::default())?;
@@ -213,13 +219,13 @@ impl PlanetTrail {
 
     #[inline]
     pub fn set_is_dead(&mut self, d: bool) {
-        self.dead = d;
-        self.particles.dead = d;
+        self.parent_dead = d;
+        self.particles.parent_dead = d;
     }
 
     #[inline]
     pub fn particles_dead(&self) -> bool {
-        self.particles.dead
+        self.particles.parent_dead
     }
 
     #[inline]

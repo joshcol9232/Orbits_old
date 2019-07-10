@@ -8,9 +8,9 @@ macro_rules! particle_system_defaults {
         #[inline]
         fn particle_count(&self) -> usize { self.particles.len() }
         #[inline]
-        fn dead(&self) -> bool { self.dead }
+        fn parent_dead(&self) -> bool { self.parent_dead }
         #[inline]
-        fn dead_mut(&mut self) -> &mut bool { &mut self.dead }
+        fn parent_dead_mut(&mut self) -> &mut bool { &mut self.parent_dead }
     };
 }
 
@@ -34,8 +34,8 @@ pub trait ParticleSystem {
     fn kill_particles(&mut self, current_time: &Duration);
 
     fn particle_count(&self) -> usize;
-    fn dead(&self) -> bool;
-    fn dead_mut(&mut self) -> &mut bool;
+    fn parent_dead(&self) -> bool;
+    fn parent_dead_mut(&mut self) -> &mut bool;
 }
 
 pub trait Particle: crate::Mobile<f32> {
