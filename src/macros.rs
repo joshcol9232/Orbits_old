@@ -52,3 +52,10 @@ macro_rules! kill_objects_with_lifetime {
         }
     };
 }
+
+#[macro_export]
+macro_rules! cast_point2_to_f32 {
+    ($point:expr) => {
+        Point2::new($point.x as f32, $point.y as f32)
+    };
+}

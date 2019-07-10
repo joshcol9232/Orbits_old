@@ -12,6 +12,7 @@ use std::f64::consts::PI;
 use std::time::Duration;
 use std::collections::VecDeque;
 use crate::{
+    tools,
     Mobile,
     particles::planet_particles::PlanetTrailParticleSys,
     particles::ParticleSystem,
@@ -58,7 +59,7 @@ impl Planet {
         graphics::draw(
             ctx,
             &circ,
-            DrawParam::default().dest(Point2::new(self.pos.x as f32, self.pos.y as f32))
+            DrawParam::default().dest(cast_point2_to_f32!(self.pos))
         )?;
 
         Ok(())
@@ -132,7 +133,7 @@ pub struct PlanetTrail {
 }
 
 impl PlanetTrail {
-    pub fn new(pos: Point2<f64>) -> PlanetTrail {
+    pub fn new(pos: Point2<f64>, current_time: &Duration) -> PlanetTrail {
         let mut p = PlanetTrail {
             pos,
             particles: PlanetTrailParticleSys::new(),
@@ -141,14 +142,14 @@ impl PlanetTrail {
             linear_node_placement_timer: 0.0,
         };
 
-        // Add some useless nodes that will be removed, but will keep trail alive for it's first update.
+        // Add a useless node that will be removed, but will keep trail alive for it's first update.
         p.linear_trail.push_back(TrailNode {
             pos: Point2::new(0.0, 0.0),
             time_created: Duration::new(0, 0),
         });
         p.linear_trail.push_back(TrailNode {
-            pos: Point2::new(1.0, 0.0),
-            time_created: Duration::new(0, 0),
+            pos: cast_point2_to_f32!(pos),
+            time_created: current_time.clone(),
         });
 
         p
@@ -164,11 +165,6 @@ impl PlanetTrail {
             // Update emmision of particles
             self.particles.update_emmision(dt, current_time, &self.pos);
 
-            // // Connect last node to middle of planet.
-            // if let Some(last) = self.linear_trail.back_mut() {
-            //     last.pos = Point2::new(self.pos.x as f32, self.pos.y as f32);
-            // }
-
             self.linear_node_placement_timer += dt;
             if self.linear_node_placement_timer >= TRAIL_PLACEMENT_PERIOD {
                 let num = (self.linear_node_placement_timer/TRAIL_PLACEMENT_PERIOD).round();
@@ -178,31 +174,33 @@ impl PlanetTrail {
         }
     }
 
+    #[inline]
     pub fn draw(&self, ctx: &mut Context, current_time: &Duration) -> GameResult {
         self.particles.draw(ctx, current_time)?;
-        // if self.linear_trail.len() > 1 {
-        //     self.draw_line(ctx, current_time)?;
-        // }
+        if self.node_count() > 1 {
+            self.draw_line(ctx, current_time)?;
+        }
         Ok(())
     }
 
     fn draw_line(&self, ctx: &mut Context, current_time: &Duration) -> GameResult {
         let trail_lifetime_float = timer::duration_to_f64(TRAIL_NODE_LIFETIME);
         
-        for i in 0..self.linear_trail.len()-1 {
+        // Works like a dot-to-dot
+        for i in 0..self.node_count()-1 {
             if self.linear_trail[i].time_created > Duration::new(0, 0) {
                 let alpha = 1.0 - timer::duration_to_f64(*current_time - self.linear_trail[i].time_created)/trail_lifetime_float;
-                let line_mesh = Mesh::new_line(
-                    ctx,
-                    &[self.linear_trail[i].pos, self.linear_trail[i+1].pos],
-                    2.0,
-                    /* Line colour:
-                        -- Pink 7824e5
-                        -- Blue 23afdd
-                    */
-                    [0.13671875, 0.68359375, 0.86328125, alpha as f32].into()
-                )?;
+                let line = if i == self.node_count()-2 {
+                    [self.linear_trail[i].pos, cast_point2_to_f32!(self.pos)]
+                } else {
+                    [self.linear_trail[i].pos, self.linear_trail[i+1].pos]
+                };
 
+                /* Line colour:
+                    -- Pink 7824e5
+                    -- Blue 23afdd
+                */
+                let line_mesh = Mesh::new_line(ctx, &line, 2.0, [0.13671875, 0.68359375, 0.86328125, alpha as f32].into())?;
                 graphics::draw(ctx, &line_mesh, DrawParam::default())?;
             }
         }
@@ -210,10 +208,16 @@ impl PlanetTrail {
     }
 
     fn place_node(&mut self, current_time: &Duration) {
-        self.linear_trail.push_back(TrailNode {
-            pos: Point2::new(self.pos.x as f32, self.pos.y as f32),
-            time_created: current_time.clone(),
-        });
+        // Makes sure node cannot be placed too close to last one as to cause a drawing error
+        if self.node_count() == 0 || (
+            tools::distance_squared_to(&self.linear_trail[self.node_count()-1].pos, &cast_point2_to_f32!(self.pos)) > 0.5
+            || self.linear_trail[self.node_count()-1].time_created > Duration::new(0, 0)
+        ) {
+            self.linear_trail.push_back(TrailNode {
+                pos: cast_point2_to_f32!(self.pos),
+                time_created: current_time.clone(),
+            });
+        }
     }
 
     #[inline]

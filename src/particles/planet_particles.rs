@@ -26,7 +26,7 @@ pub struct PlanetTrailParticleSys {
 impl PlanetTrailParticleSys {
     pub fn new() -> PlanetTrailParticleSys {
         let mut p = PlanetTrailParticleSys {
-            particles: VecDeque::with_capacity(32),
+            particles: VecDeque::with_capacity(26),
             rand_thread: rand::thread_rng(),
             emmision_timer: 0.0,
         };
@@ -39,7 +39,7 @@ impl PlanetTrailParticleSys {
     fn add_particle(&mut self, current_time: &Duration, pos: &Point2<f64>) {
         self.particles.push_back(
             PlanetTrailParticle::new(
-                Point2::new(pos.x as f32, pos.y as f32),
+                cast_point2_to_f32!(pos),
                 Vector2::new(
                     self.rand_thread.gen_range(PARTICLE_VEL_LIMITS.0, PARTICLE_VEL_LIMITS.1),
                     self.rand_thread.gen_range(PARTICLE_VEL_LIMITS.0, PARTICLE_VEL_LIMITS.1)

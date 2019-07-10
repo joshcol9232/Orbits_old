@@ -56,7 +56,7 @@ struct MainState {
 }
 
 impl MainState {
-    fn new(_ctx: &mut Context) -> GameResult<MainState> {
+    fn new(ctx: &mut Context) -> GameResult<MainState> {
         let mut s = MainState {
             planets: HashMap::with_capacity(100),
             planet_trails: HashMap::with_capacity(100),
@@ -71,27 +71,30 @@ impl MainState {
             Point2::new(200.0f64, 100.0),
             Vector2::new(0.0f64, 0.0),
             20.0,
+            ctx
         );
         s.add_planet(
             Point2::new(300.0f64, 300.0),
             Vector2::new(0.0f64, 0.0),
             30.0,
+            ctx
         );
         s.add_planet(
             Point2::new(40.0f64, 400.0),
             Vector2::new(0.0f64, 0.0),
             10.0,
+            ctx
         );
 
         Ok(s)
     }
 
-    fn add_planet(&mut self, pos: Point2<f64>, vel: Vector2<f64>, radius: f64) {
+    fn add_planet(&mut self, pos: Point2<f64>, vel: Vector2<f64>, radius: f64, ctx: &Context) {
         self.planets.insert(self.id_counter, RefCell::new(Planet::new(self.id_counter, pos.clone(), vel, radius, 0.0)));
 
         self.planet_trails.insert(
             self.id_counter,
-            PlanetTrail::new(pos)
+            PlanetTrail::new(pos, &timer::time_since_start(ctx)),
         );
 
         self.id_counter = self.id_counter.wrapping_add(1);
@@ -250,11 +253,11 @@ impl event::EventHandler for MainState {
         self.mouse_info.down_pos = Point2::new(x, y);
     }
 
-    fn mouse_button_up_event(&mut self, _ctx: &mut Context, _button: MouseButton, x: f32, y: f32) {
+    fn mouse_button_up_event(&mut self, ctx: &mut Context, _button: MouseButton, x: f32, y: f32) {
         self.mouse_info.down = false;
         let origin = Point2::new(self.mouse_info.down_pos.x as f64, self.mouse_info.down_pos.y as f64);
 
-        self.add_planet(origin, origin - Point2::new(x as f64, y as f64), 5.0);
+        self.add_planet(origin, origin - Point2::new(x as f64, y as f64), 5.0, ctx);
     }
 
     fn mouse_motion_event(&mut self, _ctx: &mut Context, x: f32, y: f32, _dx: f32, _dy: f32) {
