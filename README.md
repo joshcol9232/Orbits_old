@@ -17,3 +17,9 @@ N-body gravity sim with nice graphics (at some point).
 - Save/Load states.
 - Particle effects and debris when planets collide.
 - Preview what will happen when adding a planet.
+- Good camera.
+
+
+This branch is for getting the basics down without other bodies other than planets.
+
+IDEA: Middle mouse click for follow with camera.
