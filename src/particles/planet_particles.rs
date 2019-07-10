@@ -7,29 +7,28 @@ use ggez::timer;
 // use nannou::draw::Draw;
 // use nannou::prelude::DurationF64;
 use std::time::Duration;
+use std::collections::VecDeque;
 
 use super::{ParticleSystem, Particle};
 use crate::Mobile;
 
-const PLANET_TRAIL_VEL_LIMITS: (f32, f32) = (-5.0, 5.0);
-const PLANET_TRAIL_RAD_LIMITS: (f32, f32) = (0.5, 3.0);
-const PLANET_TRAIL_LIFETIME: Duration = Duration::from_millis(2500); // 2.5 secs
-const PLANET_TRAIL_EMMISION_PERIOD: f64 = 0.08; // Time between emmisions
+const PARTICLE_VEL_LIMITS: (f32, f32) = (-5.0, 5.0);
+const PARTICLE_RAD_LIMITS: (f32, f32) = (0.5, 3.0);
+const PARTICLE_LIFETIME: Duration = Duration::from_millis(2500); // 2.5 secs
+const PARTICLE_EMMISION_PERIOD: f64 = 0.08; // Time between emmisions
 
 pub struct PlanetTrailParticleSys {
-    particles: Vec<PlanetTrailParticle>,
+    particles: VecDeque<PlanetTrailParticle>,
     rand_thread: ThreadRng,
     emmision_timer: f64,
-    pub parent_dead: bool,
 }
 
 impl PlanetTrailParticleSys {
     pub fn new() -> PlanetTrailParticleSys {
         let mut p = PlanetTrailParticleSys {
-            particles: Vec::with_capacity(32),
+            particles: VecDeque::with_capacity(32),
             rand_thread: rand::thread_rng(),
             emmision_timer: 0.0,
-            parent_dead: false,
         };
 
         p.add_particle(&Duration::new(0, 0), &Point2::new(0.0, 0.0));
@@ -38,16 +37,16 @@ impl PlanetTrailParticleSys {
     }
 
     fn add_particle(&mut self, current_time: &Duration, pos: &Point2<f64>) {
-        self.particles.push(
+        self.particles.push_back(
             PlanetTrailParticle::new(
                 Point2::new(pos.x as f32, pos.y as f32),
                 Vector2::new(
-                    self.rand_thread.gen_range(PLANET_TRAIL_VEL_LIMITS.0, PLANET_TRAIL_VEL_LIMITS.1),
-                    self.rand_thread.gen_range(PLANET_TRAIL_VEL_LIMITS.0, PLANET_TRAIL_VEL_LIMITS.1)
+                    self.rand_thread.gen_range(PARTICLE_VEL_LIMITS.0, PARTICLE_VEL_LIMITS.1),
+                    self.rand_thread.gen_range(PARTICLE_VEL_LIMITS.0, PARTICLE_VEL_LIMITS.1)
                 ),
-                self.rand_thread.gen_range(PLANET_TRAIL_RAD_LIMITS.0, PLANET_TRAIL_RAD_LIMITS.1),
+                self.rand_thread.gen_range(PARTICLE_RAD_LIMITS.0, PARTICLE_RAD_LIMITS.1),
                 current_time.clone(),
-                PLANET_TRAIL_LIFETIME
+                PARTICLE_LIFETIME
             )
         );
     }
@@ -85,28 +84,28 @@ impl PlanetTrailParticleSys {
     }
 
 
-    pub fn update(&mut self, dt: f64, current_time: &Duration, pos: &Point2<f64>) {
+    pub fn update_emmision(&mut self, dt: f64, current_time: &Duration, pos: &Point2<f64>) {
+        self.emmision_timer += dt;
+
+        if self.emmision_timer >= PARTICLE_EMMISION_PERIOD {
+            let num = (self.emmision_timer/PARTICLE_EMMISION_PERIOD).round();
+            self.emmision_timer -= PARTICLE_EMMISION_PERIOD * num;
+
+            self.emit(num as usize, current_time, pos);
+        }
+    }
+
+    pub fn update_particles(&mut self, dt: f64, current_time: &Duration) {
         self.kill_particles(current_time);
         
         for p in self.particles.iter_mut() {
             p.update_pos(dt as f32);
         }
-
-        if !self.parent_dead {
-            self.emmision_timer += dt;
-
-            if self.emmision_timer >= PLANET_TRAIL_EMMISION_PERIOD {
-                let num = (self.emmision_timer/PLANET_TRAIL_EMMISION_PERIOD).round();
-                self.emmision_timer -= PLANET_TRAIL_EMMISION_PERIOD * num;
-
-                self.emit(num as usize, current_time, pos);
-            }
-        }
     }
 }
 
 impl ParticleSystem for PlanetTrailParticleSys {
-    particle_system_defaults!();
+    particle_system_defaults!(PARTICLE_LIFETIME);
 }
 
 struct PlanetTrailParticle {

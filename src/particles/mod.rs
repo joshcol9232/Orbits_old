@@ -1,16 +1,16 @@
 use std::time::Duration;
 
+//use crate::macros::kill_objects_with_lifetime;
+
 #[macro_export]
 macro_rules! particle_system_defaults {
-    () => {
+    ($max_lifetime:expr) => {
         #[inline]
-        fn kill_particles(&mut self, current_time: &Duration) { self.particles.retain(|p| *current_time - p.time_created < p.lifetime) }
+        fn kill_particles(&mut self, current_time: &Duration) {
+            kill_objects_with_lifetime!(self.particles, current_time, $max_lifetime);
+        }
         #[inline]
         fn particle_count(&self) -> usize { self.particles.len() }
-        #[inline]
-        fn parent_dead(&self) -> bool { self.parent_dead }
-        #[inline]
-        fn parent_dead_mut(&mut self) -> &mut bool { &mut self.parent_dead }
     };
 }
 
@@ -34,8 +34,6 @@ pub trait ParticleSystem {
     fn kill_particles(&mut self, current_time: &Duration);
 
     fn particle_count(&self) -> usize;
-    fn parent_dead(&self) -> bool;
-    fn parent_dead_mut(&mut self) -> &mut bool;
 }
 
 pub trait Particle: crate::Mobile<f32> {

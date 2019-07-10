@@ -10,6 +10,7 @@ use na::{
 use std::fmt;
 use std::f64::consts::PI;
 use std::time::Duration;
+use std::collections::VecDeque;
 use crate::{
     Mobile,
     particles::planet_particles::PlanetTrailParticleSys,
@@ -124,9 +125,9 @@ impl fmt::Debug for Planet {
 
 pub struct PlanetTrail {
     pub pos: Point2<f64>,   // Not a reference to planet pos, since i want it to live longer than planet
-    pub parent_dead: bool,
     particles: PlanetTrailParticleSys,
-    linear_trail: Vec<TrailNode>,
+    pub parent_dead: bool,
+    linear_trail: VecDeque<TrailNode>,
     linear_node_placement_timer: f64,
 }
 
@@ -134,18 +135,18 @@ impl PlanetTrail {
     pub fn new(pos: Point2<f64>) -> PlanetTrail {
         let mut p = PlanetTrail {
             pos,
-            parent_dead: false,
             particles: PlanetTrailParticleSys::new(),
-            linear_trail: Vec::with_capacity(41),
+            parent_dead: false,
+            linear_trail: VecDeque::with_capacity(41),
             linear_node_placement_timer: 0.0,
         };
 
         // Add some useless nodes that will be removed, but will keep trail alive for it's first update.
-        p.linear_trail.push(TrailNode {
+        p.linear_trail.push_back(TrailNode {
             pos: Point2::new(0.0, 0.0),
             time_created: Duration::new(0, 0),
         });
-        p.linear_trail.push(TrailNode {
+        p.linear_trail.push_back(TrailNode {
             pos: Point2::new(1.0, 0.0),
             time_created: Duration::new(0, 0),
         });
@@ -155,11 +156,19 @@ impl PlanetTrail {
 
     pub fn update(&mut self, dt: f64, current_time: &Duration) {
         self.kill_dead_nodes(current_time);
-        self.particles.update(dt, current_time, &self.pos);
+        self.particles.update_particles(dt, current_time);
 
-        println!("Number of particles: {}", self.particle_count());
+        println!("Number of nodes: {}", self.node_count());
 
-        if !self.particles.parent_dead {
+        if !self.parent_dead {
+            // Update emmision of particles
+            self.particles.update_emmision(dt, current_time, &self.pos);
+
+            // // Connect last node to middle of planet.
+            // if let Some(last) = self.linear_trail.back_mut() {
+            //     last.pos = Point2::new(self.pos.x as f32, self.pos.y as f32);
+            // }
+
             self.linear_node_placement_timer += dt;
             if self.linear_node_placement_timer >= TRAIL_PLACEMENT_PERIOD {
                 let num = (self.linear_node_placement_timer/TRAIL_PLACEMENT_PERIOD).round();
@@ -201,7 +210,7 @@ impl PlanetTrail {
     }
 
     fn place_node(&mut self, current_time: &Duration) {
-        self.linear_trail.push(TrailNode {
+        self.linear_trail.push_back(TrailNode {
             pos: Point2::new(self.pos.x as f32, self.pos.y as f32),
             time_created: current_time.clone(),
         });
@@ -209,23 +218,12 @@ impl PlanetTrail {
 
     #[inline]
     fn kill_dead_nodes(&mut self, current_time: &Duration) {
-        self.linear_trail.retain(|n| (*current_time - n.time_created <= TRAIL_NODE_LIFETIME) && (n.time_created > Duration::new(0, 0)));
+        kill_objects_with_lifetime!(self.linear_trail, current_time, TRAIL_NODE_LIFETIME);
     }
 
     #[inline]
     pub fn particle_count(&self) -> usize {
         self.particles.particle_count()
-    }
-
-    #[inline]
-    pub fn set_is_dead(&mut self, d: bool) {
-        self.parent_dead = d;
-        self.particles.parent_dead = d;
-    }
-
-    #[inline]
-    pub fn particles_dead(&self) -> bool {
-        self.particles.parent_dead
     }
 
     #[inline]

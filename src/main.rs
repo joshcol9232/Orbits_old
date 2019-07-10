@@ -1,19 +1,7 @@
 extern crate ggez;
 extern crate rand;
 
-#[macro_export]
-macro_rules! mobile_get_set_defaults {
-    ($t:ty) => {
-        #[inline(always)]
-        fn pos(&self) -> &Point2<$t> { &self.pos }
-        #[inline(always)]
-        fn pos_mut(&mut self) -> &mut Point2<$t> { &mut self.pos }
-        #[inline(always)]
-        fn vel(&self) -> &Vector2<$t> { &self.vel }
-        #[inline(always)]
-        fn vel_mut(&mut self) -> &mut Vector2<$t> { &mut self.vel }
-    };
-}
+#[macro_use] mod macros;
 
 mod planet;
 mod tools;
@@ -117,7 +105,7 @@ impl MainState {
                     // If the planet no longer exists, then set the particle system to dead. 
                     // If the particle system is dead, it will no longer emit, but will be removed when
                     // all nodes/particles have faded (see `remove_dead_planet_trails`).
-                    sys.set_is_dead(true);
+                    sys.parent_dead = true;
                 }
             }
 
@@ -133,7 +121,7 @@ impl MainState {
     #[inline]
     fn remove_dead_planet_trails(&mut self) {
         // > 1 nodes needed to draw a line
-        self.planet_trails.retain(|_, sys| !sys.particles_dead() || sys.particle_count() > 0 || sys.node_count() > 1);
+        self.planet_trails.retain(|_, sys| !sys.parent_dead || sys.particle_count() > 0 || sys.node_count() > 1);
     }
 
     fn is_colliding(p1: &Point2<f64>, p2: &Point2<f64>, r1: f64, r2: f64) -> bool {
