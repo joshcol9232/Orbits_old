@@ -266,9 +266,9 @@ impl event::EventHandler for MainState {
 pub fn main() -> GameResult {
     use ggez::conf::{WindowSetup, NumSamples};
 
-    let cb = ggez::ContextBuilder::new("Planets", "eggmund")
+    let cb = ggez::ContextBuilder::new("Orbits", "eggmund")
         .window_setup(WindowSetup {
-            title: "Planets".to_owned(),
+            title: "Orbits".to_owned(),
             samples: NumSamples::Eight,
             vsync: true,
             transparent: false,
