@@ -160,6 +160,14 @@ impl MainState {
 
         Ok(())
     }
+
+    fn draw_fps(ctx: &mut Context) -> GameResult {
+        use graphics::Text;
+        let text = Text::new(format!("{:.2}", timer::fps(ctx)));
+
+        graphics::draw(ctx, &text, DrawParam::default().dest(Point2::new(10.0, 10.0)))?;
+        Ok(())
+    }
 }
 
 impl event::EventHandler for MainState {
@@ -230,6 +238,8 @@ impl event::EventHandler for MainState {
             self.mouse_info.draw_mouse_drag(ctx)?;
             self.draw_fake_planet(ctx, self.mouse_info.down_pos, 5.0)?;
         }
+
+        Self::draw_fps(ctx)?;
 
         graphics::present(ctx)?;
         Ok(())

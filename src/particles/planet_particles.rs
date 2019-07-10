@@ -14,7 +14,7 @@ use crate::Mobile;
 
 const PARTICLE_VEL_LIMITS: (f32, f32) = (-5.0, 5.0);
 const PARTICLE_RAD_LIMITS: (f32, f32) = (0.5, 3.0);
-const PARTICLE_LIFETIME: Duration = Duration::from_millis(2500); // 2.5 secs
+const PARTICLE_LIFETIME: Duration = Duration::from_millis(2000);
 const PARTICLE_EMMISION_PERIOD: f64 = 0.08; // Time between emmisions
 
 pub struct PlanetTrailParticleSys {
@@ -45,8 +45,7 @@ impl PlanetTrailParticleSys {
                     self.rand_thread.gen_range(PARTICLE_VEL_LIMITS.0, PARTICLE_VEL_LIMITS.1)
                 ),
                 self.rand_thread.gen_range(PARTICLE_RAD_LIMITS.0, PARTICLE_RAD_LIMITS.1),
-                current_time.clone(),
-                PARTICLE_LIFETIME
+                current_time.clone()
             )
         );
     }
@@ -61,7 +60,7 @@ impl PlanetTrailParticleSys {
     pub fn draw(&self, ctx: &mut Context, current_time: &Duration) -> GameResult {
         for p in self.particles.iter() {
             if p.time_created > Duration::new(0, 0) {
-                let alpha: f64 = 1.0 - (timer::duration_to_f64(*current_time - p.time_created)/timer::duration_to_f64(p.lifetime));
+                let alpha: f64 = 1.0 - (timer::duration_to_f64(*current_time - p.time_created)/timer::duration_to_f64(PARTICLE_LIFETIME));
 
                 let circ = Mesh::new_circle(
                     ctx,
@@ -113,17 +112,15 @@ struct PlanetTrailParticle {
     vel: Vector2<f32>,
     rad: f32,
     time_created: Duration,
-    lifetime: Duration,
 }
 
 impl PlanetTrailParticle {
-    fn new(pos: Point2<f32>, vel: Vector2<f32>, rad: f32, time: Duration, lifetime: Duration) -> PlanetTrailParticle {
+    fn new(pos: Point2<f32>, vel: Vector2<f32>, rad: f32, time: Duration) -> PlanetTrailParticle {
         PlanetTrailParticle {
             pos,
             vel,
             rad,
             time_created: time,
-            lifetime,
         }
     }
 }
@@ -133,5 +130,5 @@ impl Mobile<f32> for PlanetTrailParticle {
 }
 
 impl Particle for PlanetTrailParticle {
-    particle_set_get_defaults!();
+    particle_set_get_defaults!(&PARTICLE_LIFETIME);
 }

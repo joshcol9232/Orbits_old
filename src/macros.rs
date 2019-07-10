@@ -12,6 +12,31 @@ macro_rules! mobile_get_set_defaults {
     };
 }
 
+#[macro_export]
+macro_rules! particle_system_defaults {
+    ($max_lifetime:expr) => {
+        #[inline]
+        fn kill_particles(&mut self, current_time: &Duration) {
+            kill_objects_with_lifetime!(self.particles, current_time, $max_lifetime);
+        }
+        #[inline]
+        fn particle_count(&self) -> usize { self.particles.len() }
+    };
+}
+
+#[macro_export]
+macro_rules! particle_set_get_defaults {
+    // $lifetime is &Duration
+    ($lifetime:expr) => {
+        #[inline]
+        fn time_created(&self) -> &std::time::Duration { &self.time_created }
+        #[inline]
+        fn lifetime(&self) -> &std::time::Duration { $lifetime }
+        #[inline]
+        fn rad(&self) -> f32 { self.rad }
+    };
+}
+
 // Macro for a common pattern, which is when you have a list of objects with a lifetime that need to be
 // removed from a queue.
 // Queue is in order of when the element was added, so nodes to remove
@@ -22,14 +47,7 @@ macro_rules! mobile_get_set_defaults {
 macro_rules! kill_objects_with_lifetime {
     // $queue is a VecDeque, $time is &Duration, $max_lifetime is Duration
     ($queue:expr, $time:expr, $max_lifetime:expr) => {
-        let mut cutoff_index = 0usize;
-        for (i, n) in $queue.iter().enumerate() {
-            if *$time - n.time_created > $max_lifetime {
-                cutoff_index = i;
-            } else { break }
-        }
-
-        for _ in 0..cutoff_index {
+        while $queue.len() > 0 && *$time - $queue.front().unwrap().time_created > $max_lifetime {
             $queue.pop_front();
         }
     };

@@ -137,7 +137,7 @@ impl PlanetTrail {
             pos,
             particles: PlanetTrailParticleSys::new(),
             parent_dead: false,
-            linear_trail: VecDeque::with_capacity(41),
+            linear_trail: VecDeque::with_capacity(40),
             linear_node_placement_timer: 0.0,
         };
 
@@ -158,7 +158,7 @@ impl PlanetTrail {
         self.kill_dead_nodes(current_time);
         self.particles.update_particles(dt, current_time);
 
-        println!("Number of nodes: {}", self.node_count());
+        //println!("Number of nodes: {}", self.node_count());
 
         if !self.parent_dead {
             // Update emmision of particles
@@ -180,9 +180,9 @@ impl PlanetTrail {
 
     pub fn draw(&self, ctx: &mut Context, current_time: &Duration) -> GameResult {
         self.particles.draw(ctx, current_time)?;
-        if self.linear_trail.len() > 1 {
-            self.draw_line(ctx, current_time)?;
-        }
+        // if self.linear_trail.len() > 1 {
+        //     self.draw_line(ctx, current_time)?;
+        // }
         Ok(())
     }
 
