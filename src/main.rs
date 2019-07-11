@@ -67,34 +67,38 @@ impl MainState {
             mouse_info: MouseInfo::default(),
         };
 
+        /*
         s.add_planet(
+            ctx,
             Point2::new(200.0f64, 100.0),
             Vector2::new(0.0f64, 0.0),
             20.0,
-            ctx
         );
         s.add_planet(
+            ctx,
             Point2::new(300.0f64, 300.0),
             Vector2::new(0.0f64, 0.0),
-            30.0,
-            ctx
+            30.0
         );
         s.add_planet(
+            ctx,
             Point2::new(40.0f64, 400.0),
             Vector2::new(0.0f64, 0.0),
-            10.0,
-            ctx
+            10.0
         );
+        */
+
+        //s.spawn_square_of_planets(ctx, Point2::new(400.0, 300.0), 2, 2, 30.0, 5.0);
 
         Ok(s)
     }
 
-    fn add_planet(&mut self, pos: Point2<f64>, vel: Vector2<f64>, radius: f64, ctx: &Context) {
+    fn add_planet(&mut self, ctx: &Context, pos: Point2<f64>, vel: Vector2<f64>, radius: f64) {
         self.planets.insert(self.id_counter, RefCell::new(Planet::new(self.id_counter, pos.clone(), vel, radius, 0.0)));
 
         self.planet_trails.insert(
             self.id_counter,
-            PlanetTrail::new(pos, &timer::time_since_start(ctx)),
+            PlanetTrail::new(cast_point2_to_f32!(pos), &timer::time_since_start(ctx)),
         );
 
         self.id_counter = self.id_counter.wrapping_add(1);
@@ -171,6 +175,19 @@ impl MainState {
         graphics::draw(ctx, &text, DrawParam::default().dest(Point2::new(10.0, 10.0)))?;
         Ok(())
     }
+
+    fn spawn_square_of_planets(&mut self, ctx:&Context, top_left: Point2<f64>, w: u16, h: u16, gap: f64, rad: f64) {
+        for i in 0..w {
+            for j in 0..h {
+                self.add_planet(
+                    ctx,
+                    Point2::new(top_left.x + i as f64 * gap, top_left.y + j as f64 * gap),
+                    Vector2::new(0.0, 0.0),
+                    rad
+                );
+            }
+        }
+    }
 }
 
 impl event::EventHandler for MainState {
@@ -213,7 +230,7 @@ impl event::EventHandler for MainState {
 
             // if planet has trail
             if let Some(p_trail) = self.planet_trails.get_mut(&me.id) {
-                p_trail.pos = me.pos;
+                p_trail.pos = cast_point2_to_f32!(me.pos);
             }
         }
 
@@ -237,7 +254,10 @@ impl event::EventHandler for MainState {
             rc.borrow().draw(ctx)?;
         }
 
-        if self.mouse_info.down && tools::distance_squared_to(&self.mouse_info.down_pos, &self.mouse_info.current_drag_position) >= 4.0 {
+        if self.mouse_info.down &&
+            self.mouse_info.button_down == MouseButton::Left &&
+            tools::distance_squared_to(&self.mouse_info.down_pos, &self.mouse_info.current_drag_position) >= 4.0 
+        {
             self.mouse_info.draw_mouse_drag(ctx)?;
             self.draw_fake_planet(ctx, self.mouse_info.down_pos, 5.0)?;
         }
@@ -248,8 +268,9 @@ impl event::EventHandler for MainState {
         Ok(())
     }
 
-    fn mouse_button_down_event(&mut self, _ctx: &mut Context, _button: MouseButton, x: f32, y: f32) {
+    fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
         self.mouse_info.down = true;
+        self.mouse_info.button_down = button;
         self.mouse_info.down_pos = Point2::new(x, y);
     }
 
@@ -257,7 +278,7 @@ impl event::EventHandler for MainState {
         self.mouse_info.down = false;
         let origin = Point2::new(self.mouse_info.down_pos.x as f64, self.mouse_info.down_pos.y as f64);
 
-        self.add_planet(origin, origin - Point2::new(x as f64, y as f64), 5.0, ctx);
+        self.add_planet(ctx, origin, origin - Point2::new(x as f64, y as f64), 5.0);
     }
 
     fn mouse_motion_event(&mut self, _ctx: &mut Context, x: f32, y: f32, _dx: f32, _dy: f32) {
@@ -273,7 +294,7 @@ pub fn main() -> GameResult {
         .window_setup(WindowSetup {
             title: "Orbits".to_owned(),
             samples: NumSamples::Eight,
-            vsync: true,
+            vsync: false,
             transparent: false,
             icon: "".to_owned(),
             srgb: true,

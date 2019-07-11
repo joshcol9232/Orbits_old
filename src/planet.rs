@@ -21,6 +21,7 @@ use crate::{
 pub const PL_DENSITY: f64 = 5000.0;
 const TRAIL_PLACEMENT_PERIOD: f64 = 0.05;
 const TRAIL_NODE_LIFETIME: Duration = Duration::from_secs(2);
+const TRAIL_NODE_DISTANCE_TOLERANCE: f32 = 2.0;         // NOTE: Distance squared
 
 pub type PlanetID = u32;
 
@@ -125,7 +126,7 @@ impl fmt::Debug for Planet {
 }
 
 pub struct PlanetTrail {
-    pub pos: Point2<f64>,   // Not a reference to planet pos, since i want it to live longer than planet
+    pub pos: Point2<f32>,   // Not a reference to planet pos, since i want it to live longer than planet
     particles: PlanetTrailParticleSys,
     pub parent_dead: bool,
     linear_trail: VecDeque<TrailNode>,
@@ -133,7 +134,7 @@ pub struct PlanetTrail {
 }
 
 impl PlanetTrail {
-    pub fn new(pos: Point2<f64>, current_time: &Duration) -> PlanetTrail {
+    pub fn new(pos: Point2<f32>, current_time: &Duration) -> PlanetTrail {
         let mut p = PlanetTrail {
             pos,
             particles: PlanetTrailParticleSys::new(),
@@ -142,22 +143,17 @@ impl PlanetTrail {
             linear_node_placement_timer: 0.0,
         };
 
-        // Add a useless node that will be removed, but will keep trail alive for it's first update.
-        p.linear_trail.push_back(TrailNode {
-            pos: Point2::new(0.0, 0.0),
-            time_created: Duration::new(0, 0),
-        });
-        p.linear_trail.push_back(TrailNode {
-            pos: cast_point2_to_f32!(pos),
-            time_created: current_time.clone(),
-        });
+        // p.linear_trail.push_back(TrailNode {
+        //     pos: pos,
+        //     time_created: current_time.clone(),
+        // });
 
         p
     }
 
     pub fn update(&mut self, dt: f64, current_time: &Duration) {
         self.kill_dead_nodes(current_time);
-        self.particles.update_particles(dt, current_time);
+        self.particles.update_particles(dt as f32, current_time);
 
         //println!("Number of nodes: {}", self.node_count());
 
@@ -180,6 +176,7 @@ impl PlanetTrail {
         if self.node_count() > 1 {
             self.draw_line(ctx, current_time)?;
         }
+
         Ok(())
     }
 
@@ -188,13 +185,13 @@ impl PlanetTrail {
         
         // Works like a dot-to-dot
         for i in 0..self.node_count()-1 {
-            if self.linear_trail[i].time_created > Duration::new(0, 0) {
+            if self.linear_trail[i].time_created > Duration::new(0, 0) && self.linear_trail[i+1].pos != self.pos {
                 let alpha = 1.0 - timer::duration_to_f64(*current_time - self.linear_trail[i].time_created)/trail_lifetime_float;
-                let line = if i == self.node_count()-2 {
-                    [self.linear_trail[i].pos, cast_point2_to_f32!(self.pos)]
-                } else {
-                    [self.linear_trail[i].pos, self.linear_trail[i+1].pos]
-                };
+                let mut line = [self.linear_trail[i].pos, self.linear_trail[i+1].pos];
+
+                if i == self.node_count()-2 {
+                    line[1] = self.pos;
+                }
 
                 /* Line colour:
                     -- Pink 7824e5
@@ -204,20 +201,26 @@ impl PlanetTrail {
                 graphics::draw(ctx, &line_mesh, DrawParam::default())?;
             }
         }
+
         Ok(())
     }
 
     fn place_node(&mut self, current_time: &Duration) {
+        println!("Node count: {}", self.node_count());
         // Makes sure node cannot be placed too close to last one as to cause a drawing error
-        if self.node_count() == 0 || (
-            tools::distance_squared_to(&self.linear_trail[self.node_count()-1].pos, &cast_point2_to_f32!(self.pos)) > 0.5
-            || self.linear_trail[self.node_count()-1].time_created > Duration::new(0, 0)
-        ) {
+        let can_place = if self.node_count() > 1 {
+            tools::distance_squared_to(&self.linear_trail[self.node_count()-1].pos, &self.pos) > TRAIL_NODE_DISTANCE_TOLERANCE
+        } else {
+            true
+        };
+
+        if can_place {
             self.linear_trail.push_back(TrailNode {
-                pos: cast_point2_to_f32!(self.pos),
+                pos: self.pos,
                 time_created: current_time.clone(),
             });
         }
+
     }
 
     #[inline]
@@ -236,6 +239,7 @@ impl PlanetTrail {
     }
 }
 
+#[derive(Debug)]
 struct TrailNode {
     pos: Point2<f32>,
     time_created: Duration,

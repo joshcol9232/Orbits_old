@@ -36,10 +36,10 @@ impl PlanetTrailParticleSys {
         p
     }
 
-    fn add_particle(&mut self, current_time: &Duration, pos: &Point2<f64>) {
+    fn add_particle(&mut self, current_time: &Duration, pos: &Point2<f32>) {
         self.particles.push_back(
             PlanetTrailParticle::new(
-                cast_point2_to_f32!(pos),
+                *pos,
                 Vector2::new(
                     self.rand_thread.gen_range(PARTICLE_VEL_LIMITS.0, PARTICLE_VEL_LIMITS.1),
                     self.rand_thread.gen_range(PARTICLE_VEL_LIMITS.0, PARTICLE_VEL_LIMITS.1)
@@ -51,7 +51,7 @@ impl PlanetTrailParticleSys {
     }
 
     #[inline]
-    fn emit(&mut self, amount: usize, current_time: &Duration, pos: &Point2<f64>) {
+    fn emit(&mut self, amount: usize, current_time: &Duration, pos: &Point2<f32>) {
         for _ in 0..amount {
             self.add_particle(current_time, pos);
         }
@@ -83,7 +83,7 @@ impl PlanetTrailParticleSys {
     }
 
 
-    pub fn update_emmision(&mut self, dt: f64, current_time: &Duration, pos: &Point2<f64>) {
+    pub fn update_emmision(&mut self, dt: f64, current_time: &Duration, pos: &Point2<f32>) {
         self.emmision_timer += dt;
 
         if self.emmision_timer >= PARTICLE_EMMISION_PERIOD {
@@ -94,11 +94,11 @@ impl PlanetTrailParticleSys {
         }
     }
 
-    pub fn update_particles(&mut self, dt: f64, current_time: &Duration) {
+    pub fn update_particles(&mut self, dt: f32, current_time: &Duration) {
         self.kill_particles(current_time);
         
         for p in self.particles.iter_mut() {
-            p.update_pos(dt as f32);
+            p.update_pos(dt);
         }
     }
 }

@@ -1,10 +1,12 @@
 use ggez::nalgebra as na;
 use ggez::{Context, GameResult};
 use ggez::graphics::{self, DrawParam, Mesh};
+use ggez::input::mouse::MouseButton;
 use na::Point2;
 
 pub struct MouseInfo {
     pub down: bool,
+    pub button_down: MouseButton,
     pub down_pos: Point2<f32>,
     pub current_drag_position: Point2<f32>,
 }
@@ -27,6 +29,7 @@ impl Default for MouseInfo {
     fn default() -> MouseInfo {
         MouseInfo {
             down: false,
+            button_down: MouseButton::Left,
             down_pos: Point2::new(0.0, 0.0),
             current_drag_position: Point2::new(1.0, 0.0),
         }
