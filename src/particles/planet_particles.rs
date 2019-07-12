@@ -1,21 +1,21 @@
+use ggez::graphics::{self, DrawMode, DrawParam, Mesh, spritebatch};
 use ggez::nalgebra as na;
-use na::{Point2, Vector2};
-use rand::{Rng, rngs::ThreadRng};
-use ggez::{Context, GameResult};
-use ggez::graphics::{self, Mesh, DrawMode, DrawParam};
 use ggez::timer;
+use ggez::{Context, GameResult};
+use na::{Point2, Vector2};
+use rand::{rngs::ThreadRng, Rng};
 // use nannou::draw::Draw;
 // use nannou::prelude::DurationF64;
-use std::time::Duration;
 use std::collections::VecDeque;
+use std::time::Duration;
 
-use super::{ParticleSystem, Particle};
+use super::{Particle, ParticleSystem};
 use crate::Mobile;
 
 const PARTICLE_VEL_LIMITS: (f32, f32) = (-5.0, 5.0);
-const PARTICLE_RAD_LIMITS: (f32, f32) = (0.5, 3.0);
-const PARTICLE_LIFETIME: Duration = Duration::from_millis(2000);
-const PARTICLE_EMMISION_PERIOD: f64 = 0.08; // Time between emmisions
+const PARTICLE_RAD_LIMITS: (f32, f32) = (5.0, 10.0); //(0.5, 3.0);
+const PARTICLE_LIFETIME: Duration = Duration::from_millis(1500);
+const PARTICLE_EMMISION_PERIOD: f64 = 0.02; // Time between emmisions
 
 pub struct PlanetTrailParticleSys {
     particles: VecDeque<PlanetTrailParticle>,
@@ -25,8 +25,10 @@ pub struct PlanetTrailParticleSys {
 
 impl PlanetTrailParticleSys {
     pub fn new() -> PlanetTrailParticleSys {
+        const EXPECTED_MAX_PARTICLE_NUM: usize = 76;
+
         let mut p = PlanetTrailParticleSys {
-            particles: VecDeque::with_capacity(26),
+            particles: VecDeque::with_capacity(EXPECTED_MAX_PARTICLE_NUM),
             rand_thread: rand::thread_rng(),
             emmision_timer: 0.0,
         };
@@ -37,17 +39,21 @@ impl PlanetTrailParticleSys {
     }
 
     fn add_particle(&mut self, current_time: &Duration, pos: &Point2<f32>) {
-        self.particles.push_back(
-            PlanetTrailParticle::new(
-                *pos,
-                Vector2::new(
-                    self.rand_thread.gen_range(PARTICLE_VEL_LIMITS.0, PARTICLE_VEL_LIMITS.1),
-                    self.rand_thread.gen_range(PARTICLE_VEL_LIMITS.0, PARTICLE_VEL_LIMITS.1)
-                ),
-                self.rand_thread.gen_range(PARTICLE_RAD_LIMITS.0, PARTICLE_RAD_LIMITS.1),
-                current_time.clone()
-            )
-        );
+        const TWO_PI: f32 = std::f32::consts::PI * 2.0;
+
+        self.particles.push_back(PlanetTrailParticle::new(
+            *pos,
+            Vector2::new(
+                self.rand_thread
+                    .gen_range(PARTICLE_VEL_LIMITS.0, PARTICLE_VEL_LIMITS.1),
+                self.rand_thread
+                    .gen_range(PARTICLE_VEL_LIMITS.0, PARTICLE_VEL_LIMITS.1),
+            ),
+            self.rand_thread
+                .gen_range(PARTICLE_RAD_LIMITS.0, PARTICLE_RAD_LIMITS.1),
+            0.0,//self.rand_thread.gen::<f32>() * TWO_PI,
+            current_time.clone(),
+        ));
     }
 
     #[inline]
@@ -57,46 +63,58 @@ impl PlanetTrailParticleSys {
         }
     }
 
-    pub fn draw(&self, ctx: &mut Context, current_time: &Duration) -> GameResult {
+    pub fn draw(&self, ctx: &mut Context, current_time: &Duration, batch: &mut spritebatch::SpriteBatch) -> GameResult {
         for p in self.particles.iter() {
             if p.time_created > Duration::new(0, 0) {
-                let alpha: f64 = 1.0 - (timer::duration_to_f64(*current_time - p.time_created)/timer::duration_to_f64(PARTICLE_LIFETIME));
+                let alpha: f64 = 1.0
+                    - (timer::duration_to_f64(*current_time - p.time_created)
+                        / timer::duration_to_f64(PARTICLE_LIFETIME));
 
-                let circ = Mesh::new_circle(
-                    ctx,
-                    DrawMode::fill(),
-                    Point2::new(0.0, 0.0),
-                    p.rad,
-                    0.05,
-                    /* Particle colour:
-                        -- Pinkish d824e5
-                        -- Mint/Green 23ddaf
-                    */
-                    [0.13671875, 0.86328125, 0.68359375, alpha as f32].into()
-                )?;
+                // let circ = Mesh::new_circle(
+                //     ctx,
+                //     DrawMode::fill(),
+                //     Point2::new(0.0, 0.0),
+                //     p.rad,
+                //     0.05,
+                //     /* Particle colour:
+                //         -- Pinkish d824e5
+                //         -- Mint/Green 23ddaf
+                //     */
+                //     [0.13671875, 0.86328125, 0.68359375, alpha as f32].into(),
+                // )?;
+                // graphics::draw(ctx, &circ, DrawParam::new().dest(cast_point2_to_f32!(p.pos)))?;
 
-                graphics::draw(ctx, &circ, DrawParam::default().dest(Point2::new(p.pos.x as f32, p.pos.y as f32)))?;
+                let scale: f32 = p.rad/512.0;
+
+                let params = DrawParam::new()
+                        .dest(cast_point2_to_f32!(p.pos))
+                        .offset([0.5, 0.5])
+                        .scale([scale, scale])
+                        .rotation(p.rotation)
+                        .color([0.15671875, 0.88328125, 0.72359375, alpha as f32].into());
+                
+                batch.add(params);
             }
         }
 
         Ok(())
     }
 
-
     pub fn update_emmision(&mut self, dt: f64, current_time: &Duration, pos: &Point2<f32>) {
         self.emmision_timer += dt;
 
         if self.emmision_timer >= PARTICLE_EMMISION_PERIOD {
-            let num = (self.emmision_timer/PARTICLE_EMMISION_PERIOD).round();
+            let num = (self.emmision_timer / PARTICLE_EMMISION_PERIOD).round();
             self.emmision_timer -= PARTICLE_EMMISION_PERIOD * num;
 
             self.emit(num as usize, current_time, pos);
         }
     }
 
+    #[inline]
     pub fn update_particles(&mut self, dt: f32, current_time: &Duration) {
         self.kill_particles(current_time);
-        
+
         for p in self.particles.iter_mut() {
             p.update_pos(dt);
         }
@@ -111,15 +129,17 @@ struct PlanetTrailParticle {
     pos: Point2<f32>,
     vel: Vector2<f32>,
     rad: f32,
+    rotation: f32,
     time_created: Duration,
 }
 
 impl PlanetTrailParticle {
-    fn new(pos: Point2<f32>, vel: Vector2<f32>, rad: f32, time: Duration) -> PlanetTrailParticle {
+    fn new(pos: Point2<f32>, vel: Vector2<f32>, rad: f32, rotation: f32, time: Duration) -> PlanetTrailParticle {
         PlanetTrailParticle {
             pos,
             vel,
             rad,
+            rotation,
             time_created: time,
         }
     }

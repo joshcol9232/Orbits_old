@@ -1,7 +1,7 @@
-use ggez::nalgebra as na;
-use ggez::{Context, GameResult};
 use ggez::graphics::{self, DrawParam, Mesh};
 use ggez::input::mouse::MouseButton;
+use ggez::nalgebra as na;
+use ggez::{Context, GameResult};
 use na::Point2;
 
 pub struct MouseInfo {
@@ -17,7 +17,7 @@ impl MouseInfo {
             ctx,
             &[self.down_pos, self.current_drag_position],
             2.0,
-            [0.0, 1.0, 0.0, 1.0].into()
+            [0.0, 1.0, 0.0, 1.0].into(),
         )?;
         graphics::draw(ctx, &line, DrawParam::default())?;
 
