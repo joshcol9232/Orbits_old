@@ -13,7 +13,7 @@ use ggez::{
     timer,
     nalgebra as na,
     graphics::{self, DrawParam, DrawMode, Mesh},
-    event::{self, MouseButton},
+    event::{self, MouseButton, KeyCode, KeyMods},
 };
 use na::{
     Point2,
@@ -188,6 +188,33 @@ impl MainState {
             }
         }
     }
+
+    #[inline]
+    fn clear_planets(&mut self) {
+        self.planets.clear();
+        for (_, sys) in self.planet_trails.iter_mut() {
+            sys.parent_dead = true;
+        }
+        self.collided_planets.clear();
+        self.id_counter = 0;
+    }
+
+    #[inline]
+    fn clear_trails(&mut self) {
+        self.planet_trails.clear();
+    }
+
+    fn clear_planets_and_trails(&mut self) {
+        self.planet_trails.clear();
+        self.planets.clear();
+        self.collided_planets.clear();
+        self.id_counter = 0;
+    }
+
+    fn clear_all(&mut self) {
+        self.clear_trails();
+        self.clear_planets();
+    }
 }
 
 impl event::EventHandler for MainState {
@@ -285,6 +312,10 @@ impl event::EventHandler for MainState {
         // Set pos
         self.mouse_info.current_drag_position = Point2::new(x, y);
     }
+
+    fn key_down_event(&mut self, ctx: &mut Context, keycode: KeyCode, _keymods: KeyMods, _repeat: bool) {
+        if keycode == KeyCode::R { self.clear_planets(); }
+    }
 }
 
 pub fn main() -> GameResult {
@@ -294,7 +325,7 @@ pub fn main() -> GameResult {
         .window_setup(WindowSetup {
             title: "Orbits".to_owned(),
             samples: NumSamples::Eight,
-            vsync: false,
+            vsync: true,
             transparent: false,
             icon: "".to_owned(),
             srgb: true,

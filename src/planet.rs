@@ -135,7 +135,7 @@ pub struct PlanetTrail {
 
 impl PlanetTrail {
     pub fn new(pos: Point2<f32>, current_time: &Duration) -> PlanetTrail {
-        let mut p = PlanetTrail {
+        let p = PlanetTrail {
             pos,
             particles: PlanetTrailParticleSys::new(),
             parent_dead: false,
@@ -154,8 +154,6 @@ impl PlanetTrail {
     pub fn update(&mut self, dt: f64, current_time: &Duration) {
         self.kill_dead_nodes(current_time);
         self.particles.update_particles(dt as f32, current_time);
-
-        //println!("Number of nodes: {}", self.node_count());
 
         if !self.parent_dead {
             // Update emmision of particles
@@ -185,20 +183,19 @@ impl PlanetTrail {
         
         // Works like a dot-to-dot
         for i in 0..self.node_count()-1 {
-            if self.linear_trail[i].time_created > Duration::new(0, 0) && self.linear_trail[i+1].pos != self.pos {
-                let alpha = 1.0 - timer::duration_to_f64(*current_time - self.linear_trail[i].time_created)/trail_lifetime_float;
-                let mut line = [self.linear_trail[i].pos, self.linear_trail[i+1].pos];
-
-                if i == self.node_count()-2 {
-                    line[1] = self.pos;
-                }
-
-                /* Line colour:
-                    -- Pink 7824e5
-                    -- Blue 23afdd
-                */
-                let line_mesh = Mesh::new_line(ctx, &line, 2.0, [0.13671875, 0.68359375, 0.86328125, alpha as f32].into())?;
-                graphics::draw(ctx, &line_mesh, DrawParam::default())?;
+            let alpha = 1.0 - timer::duration_to_f64(*current_time - self.linear_trail[i].time_created)/trail_lifetime_float;
+            let line = if i == self.node_count()-2 {           // If on the last line, then connect it to the center of the planet                
+                [self.linear_trail[i].pos, self.pos]
+            } else {
+                [self.linear_trail[i].pos, self.linear_trail[i+1].pos]
+            };
+            /* Line colour:
+                -- Pink 7824e5
+                -- Blue 23afdd
+            */
+            match Mesh::new_line(ctx, &line, 2.0, [0.13671875, 0.68359375, 0.86328125, alpha as f32].into()) {
+                Ok(line_mesh) => { graphics::draw(ctx, &line_mesh, DrawParam::default())?; },
+                Err(e) => {}// eprintln!("Issue drawing line in planet trail. {}", e); }
             }
         }
 
@@ -206,7 +203,6 @@ impl PlanetTrail {
     }
 
     fn place_node(&mut self, current_time: &Duration) {
-        println!("Node count: {}", self.node_count());
         // Makes sure node cannot be placed too close to last one as to cause a drawing error
         let can_place = if self.node_count() > 1 {
             tools::distance_squared_to(&self.linear_trail[self.node_count()-1].pos, &self.pos) > TRAIL_NODE_DISTANCE_TOLERANCE
@@ -220,7 +216,6 @@ impl PlanetTrail {
                 time_created: current_time.clone(),
             });
         }
-
     }
 
     #[inline]
