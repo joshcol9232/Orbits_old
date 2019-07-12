@@ -42,8 +42,8 @@ pub trait Mobile<T: RealField> {
 struct MainState {
     smoke_sprite_batch: graphics::spritebatch::SpriteBatch,
 
-    planets: HashMap<PlanetID, RefCell<Planet>>, //Hashmap of ids
-    planet_trails: HashMap<PlanetID, PlanetTrail>, // Tied to body id. Seperate from body since i may want effect to last after body is removed.
+    planets: HashMap<PlanetID, RefCell<Planet>>,    // Hashmap of ids
+    planet_trails: HashMap<PlanetID, PlanetTrail>,  // Tied to body id. Seperate from body since i may want effect to last after body is removed.
 
     collided_planets: Vec<PlanetID>, // IDs
     id_counter: PlanetID,
@@ -67,28 +67,14 @@ impl MainState {
             mouse_info: MouseInfo::default(),
         };
 
-        /*
         s.add_planet(
             ctx,
-            Point2::new(200.0f64, 100.0),
+            Point2::new(500.0f64, 400.0),
             Vector2::new(0.0f64, 0.0),
-            20.0,
+            50.0
         );
-        s.add_planet(
-            ctx,
-            Point2::new(300.0f64, 300.0),
-            Vector2::new(0.0f64, 0.0),
-            30.0
-        );
-        s.add_planet(
-            ctx,
-            Point2::new(40.0f64, 400.0),
-            Vector2::new(0.0f64, 0.0),
-            10.0
-        );
-        */
 
-        s.spawn_square_of_planets(ctx, Point2::new(50.0, 50.0), 16, 16, 50.0, 5.0);
+        //s.spawn_square_of_planets(ctx, Point2::new(50.0, 50.0), 20, 20, 50.0, 5.0);
 
         Ok(s)
     }
@@ -101,7 +87,7 @@ impl MainState {
 
         self.planet_trails.insert(
             self.id_counter,
-            PlanetTrail::new(cast_point2_to_f32!(pos), &timer::time_since_start(ctx)),
+            PlanetTrail::new(cast_point2_to_f32!(pos)),
         );
 
         self.id_counter = self.id_counter.wrapping_add(1);
@@ -346,16 +332,30 @@ impl event::EventHandler for MainState {
 }
 
 pub fn main() -> GameResult {
-    use ggez::conf::{NumSamples, WindowSetup};
+    use ggez::conf::{NumSamples, WindowSetup, WindowMode, FullscreenType};
 
-    let mut cb = ggez::ContextBuilder::new("Orbits", "eggmund").window_setup(WindowSetup {
-        title: "Orbits".to_owned(),
-        samples: NumSamples::Eight,
-        vsync: true,
-        transparent: false,
-        icon: "".to_owned(),
-        srgb: true,
-    });
+    let mut cb = ggez::ContextBuilder::new("Orbits", "eggmund")
+        .window_setup(WindowSetup {
+            title: "Orbits".to_owned(),
+            samples: NumSamples::Eight,
+            vsync: true,
+            transparent: false,
+            icon: "".to_owned(),
+            srgb: true
+        })
+        .window_mode(WindowMode {
+            width: 1000.0,
+            height: 800.0,
+            maximized: false,
+            fullscreen_type: FullscreenType::Windowed,
+            borderless: false,
+            min_width: 0.0,
+            min_height: 0.0,
+            max_width: 0.0,
+            max_height: 0.0,
+            hidpi: false,
+            resizable: false
+        });
 
     if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
         let mut path = std::path::PathBuf::from(manifest_dir);

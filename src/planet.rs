@@ -139,7 +139,7 @@ pub struct PlanetTrail {
 }
 
 impl PlanetTrail {
-    pub fn new(pos: Point2<f32>, current_time: &Duration) -> PlanetTrail {
+    pub fn new(pos: Point2<f32>) -> PlanetTrail {
         let p = PlanetTrail {
             pos,
             particles: PlanetTrailParticleSys::new(),

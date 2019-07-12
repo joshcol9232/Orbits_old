@@ -4,18 +4,19 @@ use ggez::timer;
 use ggez::{Context, GameResult};
 use na::{Point2, Vector2};
 use rand::{rngs::ThreadRng, Rng};
-// use nannou::draw::Draw;
-// use nannou::prelude::DurationF64;
+
 use std::collections::VecDeque;
 use std::time::Duration;
 
 use super::{Particle, ParticleSystem};
 use crate::Mobile;
 
-const PARTICLE_VEL_LIMITS: (f32, f32) = (-5.0, 5.0);
-const PARTICLE_RAD_LIMITS: (f32, f32) = (5.0, 10.0); //(0.5, 3.0);
+const PARTICLE_VEL_LIMIT: f32 = 5.0;
+const PARTICLE_RAD_LIMITS: (f32, f32) = (5.0, 10.0);
 const PARTICLE_LIFETIME: Duration = Duration::from_millis(1500);
 const PARTICLE_EMMISION_PERIOD: f64 = 0.02; // Time between emmisions
+
+const SMOKE_IMAGE_DIMENSIONS: [usize; 2] = [512, 512];
 
 pub struct PlanetTrailParticleSys {
     particles: VecDeque<PlanetTrailParticle>,
@@ -25,6 +26,7 @@ pub struct PlanetTrailParticleSys {
 
 impl PlanetTrailParticleSys {
     pub fn new() -> PlanetTrailParticleSys {
+        // Expected max particles = particle_lifetime/particle_emmision_period + 1
         const EXPECTED_MAX_PARTICLE_NUM: usize = 76;
 
         let mut p = PlanetTrailParticleSys {
@@ -45,13 +47,13 @@ impl PlanetTrailParticleSys {
             *pos,
             Vector2::new(
                 self.rand_thread
-                    .gen_range(PARTICLE_VEL_LIMITS.0, PARTICLE_VEL_LIMITS.1),
+                    .gen_range(-PARTICLE_VEL_LIMIT, PARTICLE_VEL_LIMIT),
                 self.rand_thread
-                    .gen_range(PARTICLE_VEL_LIMITS.0, PARTICLE_VEL_LIMITS.1),
+                    .gen_range(-PARTICLE_VEL_LIMIT, PARTICLE_VEL_LIMIT),
             ),
             self.rand_thread
                 .gen_range(PARTICLE_RAD_LIMITS.0, PARTICLE_RAD_LIMITS.1),
-            0.0,//self.rand_thread.gen::<f32>() * TWO_PI,
+            self.rand_thread.gen::<f32>() * TWO_PI,
             current_time.clone(),
         ));
     }
@@ -64,6 +66,8 @@ impl PlanetTrailParticleSys {
     }
 
     pub fn draw(&self, ctx: &mut Context, current_time: &Duration, batch: &mut spritebatch::SpriteBatch) -> GameResult {
+        const SCALE: [f32; 2] = [1.0/SMOKE_IMAGE_DIMENSIONS[0] as f32, 1.0/SMOKE_IMAGE_DIMENSIONS[1] as f32];
+
         for p in self.particles.iter() {
             if p.time_created > Duration::new(0, 0) {
                 let alpha: f64 = 1.0
@@ -84,12 +88,10 @@ impl PlanetTrailParticleSys {
                 // )?;
                 // graphics::draw(ctx, &circ, DrawParam::new().dest(cast_point2_to_f32!(p.pos)))?;
 
-                let scale: f32 = p.rad/512.0;
-
                 let params = DrawParam::new()
                         .dest(cast_point2_to_f32!(p.pos))
                         .offset([0.5, 0.5])
-                        .scale([scale, scale])
+                        .scale([SCALE[0] * p.rad, SCALE[1] * p.rad])
                         .rotation(p.rotation)
                         .color([0.15671875, 0.88328125, 0.72359375, alpha as f32].into());
                 
