@@ -21,3 +21,11 @@ pub fn newtonian_grav(m1: f64, m2: f64, pos1: &Point2<f64>, pos2: &Point2<f64>) 
 
     Vector2::new(force * angle.cos(), force * angle.sin())
 }
+
+#[inline]
+pub fn get_components<T: RealField>(magnitude: T, angle: T) -> Vector2<T> {
+    Vector2::new(
+        magnitude * angle.cos(),
+        magnitude * angle.sin()
+    )
+}

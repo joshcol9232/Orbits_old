@@ -1,7 +1,6 @@
-use ggez::graphics::{self, DrawMode, DrawParam, Mesh, spritebatch};
+use ggez::graphics::{self, DrawParam, spritebatch};
 use ggez::nalgebra as na;
-use ggez::timer;
-use ggez::{Context, GameResult};
+use ggez::{Context, GameResult, timer};
 use na::{Point2, Vector2};
 use rand::{rngs::ThreadRng, Rng};
 
@@ -9,9 +8,9 @@ use std::collections::VecDeque;
 use std::time::Duration;
 
 use super::{Particle, ParticleSystem};
-use crate::Mobile;
+use crate::{Mobile, TWO_PI, tools};
 
-const PARTICLE_VEL_LIMIT: f32 = 5.0;
+const PARTICLE_SPEED_LIMIT: f32 = 5.0;
 const PARTICLE_RAD_LIMITS: (f32, f32) = (5.0, 10.0);
 const PARTICLE_LIFETIME: Duration = Duration::from_millis(1500);
 const PARTICLE_EMMISION_PERIOD: f64 = 0.02; // Time between emmisions
@@ -41,21 +40,22 @@ impl PlanetTrailParticleSys {
     }
 
     fn add_particle(&mut self, current_time: &Duration, pos: &Point2<f32>) {
-        const TWO_PI: f32 = std::f32::consts::PI * 2.0;
-
         self.particles.push_back(PlanetTrailParticle::new(
             *pos,
-            Vector2::new(
-                self.rand_thread
-                    .gen_range(-PARTICLE_VEL_LIMIT, PARTICLE_VEL_LIMIT),
-                self.rand_thread
-                    .gen_range(-PARTICLE_VEL_LIMIT, PARTICLE_VEL_LIMIT),
-            ),
+            Self::get_new_particle_vel(&mut self.rand_thread),
             self.rand_thread
                 .gen_range(PARTICLE_RAD_LIMITS.0, PARTICLE_RAD_LIMITS.1),
-            self.rand_thread.gen::<f32>() * TWO_PI,
+            self.rand_thread.gen::<f32>() * TWO_PI as f32,
             current_time.clone(),
         ));
+    }
+
+    #[inline]
+    fn get_new_particle_vel(rand_thread: &mut ThreadRng) -> Vector2<f32> {
+        tools::get_components(
+            rand_thread.gen_range(-PARTICLE_SPEED_LIMIT, PARTICLE_SPEED_LIMIT),
+            rand_thread.gen_range(0.0, TWO_PI as f32)
+        )
     }
 
     #[inline]

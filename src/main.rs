@@ -1,6 +1,3 @@
-extern crate ggez;
-extern crate rand;
-
 #[macro_use]
 mod macros;
 
@@ -13,17 +10,22 @@ use ggez::{
     event::{self, KeyCode, KeyMods, MouseButton},
     graphics::{self, DrawMode, DrawParam, Mesh},
     nalgebra as na, timer, Context, GameResult,
+    filesystem,
 };
 use na::{Point2, RealField, Vector2};
+use serde::{Serialize, Deserialize};
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, hash_map::Entry};
+use std::path::Path;
+use std::io::{Read, Write};
 
 use crate::{
     mouse::MouseInfo,
-    planet::{Planet, PlanetID, PlanetTrail},
+    planet::{Planet, PlanetSaveData, PlanetID, PlanetTrail},
 };
 
+pub const TWO_PI: f64 = std::f64::consts::PI * 2.0;
 pub const GRAV_CONSTANT: f64 = 0.001;
 
 // For mobile objects
@@ -85,12 +87,16 @@ impl MainState {
             RefCell::new(Planet::new(self.id_counter, pos.clone(), vel, radius, 0.0)),
         );
 
-        self.planet_trails.insert(
-            self.id_counter,
-            PlanetTrail::new(cast_point2_to_f32!(pos)),
-        );
+        self.add_planet_trail(self.id_counter, cast_point2_to_f32!(pos));
 
         self.id_counter = self.id_counter.wrapping_add(1);
+    }
+
+    fn add_planet_trail(&mut self, id: PlanetID, pos: Point2<f32>) {
+        self.planet_trails.insert(
+            id,
+            PlanetTrail::new(pos),
+        );
     }
 
     fn remove_collided_planets(&mut self) {
@@ -200,16 +206,55 @@ impl MainState {
         self.planet_trails.clear();
     }
 
+    #[inline]
     fn clear_planets_and_trails(&mut self) {
         self.planet_trails.clear();
         self.planets.clear();
         self.collided_planets.clear();
         self.id_counter = 0;
     }
-
+    
+    #[inline]
     fn clear_all(&mut self) {
         self.clear_trails();
         self.clear_planets();
+    }
+
+    fn save_to_file(&self, ctx: &mut Context, path: &Path) -> GameResult {
+        println!("Saving: {}", path.display());
+        let save = SaveState::new_from_main_state(&self);
+        let encoded = bincode::serialize(&save).unwrap();
+
+        let mut file = filesystem::create(ctx, path)?;
+        file.write(encoded.as_slice())?;
+
+        Ok(())
+    }
+
+    fn load_planet(&mut self, saved_planet: &PlanetSaveData) {
+        let mut loaded_planet: Planet = saved_planet.into();
+        let new_id = self.id_counter;
+        self.id_counter += 1;
+        loaded_planet.id = new_id;
+
+        self.planets.insert(new_id, RefCell::new(loaded_planet));
+
+        self.add_planet_trail(new_id, Point2::new(saved_planet.pos_x as f32, saved_planet.pos_y as f32));
+    }
+
+    #[inline]
+    fn load_from_save_state(&mut self, save: &SaveState) {
+        self.clear_all();
+        for (_, saved_planet) in save.planets.iter() {
+            self.load_planet(saved_planet);
+        }
+    }
+
+    #[inline]
+    fn load_from_file(&mut self, ctx: &mut Context, path: &Path) -> GameResult {
+        let save_state = SaveState::load_from_file(ctx, path)?;
+        self.load_from_save_state(&save_state);
+        Ok(())
     }
 }
 
@@ -252,7 +297,8 @@ impl event::EventHandler for MainState {
 
             // if planet has trail
             if let Some(p_trail) = self.planet_trails.get_mut(&me.id) {
-                p_trail.pos = cast_point2_to_f32!(me.pos);
+                p_trail.pos.x = me.pos.x as f32;
+                p_trail.pos.y = me.pos.y as f32;
             }
         }
 
@@ -314,7 +360,6 @@ impl event::EventHandler for MainState {
     }
 
     fn mouse_motion_event(&mut self, _ctx: &mut Context, x: f32, y: f32, _dx: f32, _dy: f32) {
-        // Set pos
         self.mouse_info.current_drag_position = Point2::new(x, y);
     }
 
@@ -322,14 +367,56 @@ impl event::EventHandler for MainState {
         &mut self,
         ctx: &mut Context,
         keycode: KeyCode,
-        _keymods: KeyMods,
+        keymods: KeyMods,
         _repeat: bool,
     ) {
         if keycode == KeyCode::R {
             self.clear_planets();
         }
+
+        if keymods == KeyMods::CTRL {
+            if keycode == KeyCode::S {
+                self.save_to_file(ctx, Path::new("/save.bin")).unwrap();
+            } else if keycode == KeyCode::L {
+                self.load_from_file(ctx, Path::new("/save.bin")).unwrap();
+            }
+        }
     }
 }
+
+// Important fields from MainState
+#[derive(Serialize, Deserialize, Default)]
+struct SaveState {
+    planets: HashMap<PlanetID, PlanetSaveData>,
+}
+
+impl SaveState {
+    fn new_from_main_state(main: &MainState) -> SaveState {
+        SaveState {
+            planets: Self::planet_save_data_from_planets(&main.planets),
+        }
+    }
+
+    fn load_from_file(ctx: &mut Context, path: &Path) -> GameResult<SaveState> {
+        let mut file = filesystem::open(ctx, path)?;
+        let mut full_data = Vec::<u8>::new();
+        file.read_to_end(&mut full_data)?;
+
+        let mut save = SaveState::default();
+        save.planets = bincode::deserialize(full_data.as_slice()).unwrap();
+
+        Ok(save)
+    }
+
+    fn planet_save_data_from_planets(map: &HashMap<PlanetID, RefCell<Planet>>) -> HashMap<PlanetID, PlanetSaveData> {
+        let mut out_map: HashMap<PlanetID, PlanetSaveData> = HashMap::new();
+        for (key, val) in map.iter() {
+            out_map.insert(*key, val.borrow().into());
+        }
+        out_map
+    }
+}
+
 
 pub fn main() -> GameResult {
     use ggez::conf::{NumSamples, WindowSetup, WindowMode, FullscreenType};

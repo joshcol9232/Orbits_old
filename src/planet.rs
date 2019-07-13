@@ -4,13 +4,19 @@ use ggez::timer;
 use ggez::{Context, GameResult};
 
 use crate::{
-    particles::planet_particles::PlanetTrailParticleSys, particles::ParticleSystem, tools, Mobile,
+    particles::planet_particles::PlanetTrailParticleSys, particles::ParticleSystem, Mobile,
 };
 use na::{Point2, Vector2};
-use std::collections::VecDeque;
+use serde::{
+    Serialize, Deserialize, Serializer, Deserializer,
+    ser::{SerializeStruct},
+    de::{self, SeqAccess, Visitor},
+};
+
 use std::f64::consts::PI;
 use std::fmt;
 use std::time::Duration;
+use std::cell::RefCell;
 
 pub const PL_DENSITY: f64 = 5000.0;
 const TRAIL_PLACEMENT_PERIOD: f64 = 0.05;
@@ -129,6 +135,46 @@ impl fmt::Debug for Planet {
         write!(f, "{}", self.id)
     }
 }
+
+impl From<&PlanetSaveData> for Planet {
+    fn from(pl_save: &PlanetSaveData) -> Self {
+        Planet {
+            id: pl_save.id,
+            pos: Point2::new(pl_save.pos_x, pl_save.pos_y),
+            vel: Vector2::new(pl_save.vel_x, pl_save.vel_y),
+            radius: pl_save.radius,
+            mass: pl_save.mass,
+            res_force: Vector2::new(0.0, 0.0),
+        }
+    }
+}
+
+
+#[derive(Serialize, Deserialize)]
+pub struct PlanetSaveData {
+    pub id: PlanetID,
+    pub pos_x: f64,
+    pub pos_y: f64,
+    pub vel_x: f64,
+    pub vel_y: f64,
+    pub radius: f64,
+    pub mass: f64
+}
+
+impl From<std::cell::Ref<'_, Planet>> for PlanetSaveData {
+    fn from(pl: std::cell::Ref<'_, Planet>) -> Self {
+        PlanetSaveData {
+            id: pl.id,
+            pos_x: pl.pos.x,
+            pos_y: pl.pos.y,
+            vel_x: pl.vel.x,
+            vel_y: pl.vel.y,
+            radius: pl.radius,
+            mass: pl.mass,
+        }
+    }
+}
+
 
 pub struct PlanetTrail {
     pub pos: Point2<f32>, // Not a reference to planet pos, since i want it to live longer than planet
@@ -250,10 +296,4 @@ impl PlanetTrail {
 struct TrailNode {
     pos: Point2<f32>,
     time_created: Duration,
-}
-
-impl Into<Point2<f32>> for TrailNode {
-    fn into(self) -> Point2<f32> {
-        self.pos
-    }
 }
