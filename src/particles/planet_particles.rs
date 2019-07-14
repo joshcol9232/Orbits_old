@@ -1,4 +1,4 @@
-use ggez::graphics::{self, DrawParam, spritebatch};
+use ggez::graphics::{DrawParam, spritebatch};
 use ggez::nalgebra as na;
 use ggez::{Context, GameResult, timer};
 use na::{Point2, Vector2};

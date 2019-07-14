@@ -16,7 +16,7 @@ use na::{Point2, RealField, Vector2};
 use serde::{Serialize, Deserialize};
 
 use std::cell::RefCell;
-use std::collections::{HashMap, hash_map::Entry};
+use std::collections::HashMap;
 use std::path::Path;
 use std::io::{Read, Write};
 
@@ -51,6 +51,8 @@ struct MainState {
     id_counter: PlanetID,
 
     mouse_info: MouseInfo,
+
+    temp_save: Option<SaveState>,
 }
 
 impl MainState {
@@ -67,6 +69,8 @@ impl MainState {
             id_counter: 0,
 
             mouse_info: MouseInfo::default(),
+
+            temp_save: None,
         };
 
         s.add_planet(
@@ -231,6 +235,30 @@ impl MainState {
         Ok(())
     }
 
+    fn load_from_file(&mut self, ctx: &mut Context, path: &Path) -> GameResult {
+        println!("Loading: {}", path.display());
+        let save_state = SaveState::load_from_file(ctx, path)?;
+        self.load_from_save_state(&save_state);
+        Ok(())
+    }
+
+    fn save_to_temp_save(&mut self, ctx: &mut Context) {
+        println!("Saving to temporary save.");
+        self.temp_save = Some(SaveState::new_from_main_state(&self));
+    }
+
+    fn load_from_temp_save(&mut self) {
+        let temp = self.temp_save.take();
+        match temp {
+            None => self.clear_all(),
+            Some(ref temp_save) => {
+                println!("Loading from temporary save.");
+                self.load_from_save_state(temp_save);
+            }
+        }
+        self.temp_save = temp;
+    }
+
     fn load_planet(&mut self, saved_planet: &PlanetSaveData) {
         let mut loaded_planet: Planet = saved_planet.into();
         let new_id = self.id_counter;
@@ -238,23 +266,20 @@ impl MainState {
         loaded_planet.id = new_id;
 
         self.planets.insert(new_id, RefCell::new(loaded_planet));
-
         self.add_planet_trail(new_id, Point2::new(saved_planet.pos_x as f32, saved_planet.pos_y as f32));
     }
 
     #[inline]
     fn load_from_save_state(&mut self, save: &SaveState) {
         self.clear_all();
-        for (_, saved_planet) in save.planets.iter() {
-            self.load_planet(saved_planet);
-        }
+        self.load_planets_from_save_state(save);
     }
 
     #[inline]
-    fn load_from_file(&mut self, ctx: &mut Context, path: &Path) -> GameResult {
-        let save_state = SaveState::load_from_file(ctx, path)?;
-        self.load_from_save_state(&save_state);
-        Ok(())
+    fn load_planets_from_save_state(&mut self, save: &SaveState) {
+        for (_, saved_planet) in save.planets.iter() {
+            self.load_planet(saved_planet);
+        }
     }
 }
 
@@ -366,20 +391,32 @@ impl event::EventHandler for MainState {
     fn key_down_event(
         &mut self,
         ctx: &mut Context,
-        keycode: KeyCode,
-        keymods: KeyMods,
+        key: KeyCode,
+        mods: KeyMods,
         _repeat: bool,
     ) {
-        if keycode == KeyCode::R {
-            self.clear_planets();
-        }
-
-        if keymods == KeyMods::CTRL {
-            if keycode == KeyCode::S {
-                self.save_to_file(ctx, Path::new("/save.bin")).unwrap();
-            } else if keycode == KeyCode::L {
-                self.load_from_file(ctx, Path::new("/save.bin")).unwrap();
-            }
+        match key {
+            KeyCode::R => {
+                self.clear_planets();
+                if mods.contains(KeyMods::CTRL) {       // CTRL + R to clear planets AND save
+                    self.temp_save = None;
+                }
+            },
+            KeyCode::S => {
+                if mods.contains(KeyMods::CTRL) {
+                    self.save_to_file(ctx, Path::new("/save.bin")).unwrap();
+                } else {
+                    self.save_to_temp_save(ctx);
+                }
+            },
+            KeyCode::L => {
+                if mods.contains(KeyMods::CTRL) {
+                    self.load_from_file(ctx, Path::new("/save.bin")).unwrap();
+                } else {
+                    self.load_from_temp_save();
+                }
+            },
+            _ => ()
         }
     }
 }

@@ -1,22 +1,19 @@
+#[allow(dead_code)]     // NOTE: Temporary
+
 use ggez::graphics::{self, DrawMode, DrawParam, Mesh, spritebatch};
 use ggez::nalgebra as na;
-use ggez::timer;
 use ggez::{Context, GameResult};
 
 use crate::{
     particles::planet_particles::PlanetTrailParticleSys, particles::ParticleSystem, Mobile,
 };
 use na::{Point2, Vector2};
-use serde::{
-    Serialize, Deserialize, Serializer, Deserializer,
-    ser::{SerializeStruct},
-    de::{self, SeqAccess, Visitor},
-};
+use serde::{Serialize, Deserialize};
 
 use std::f64::consts::PI;
 use std::fmt;
 use std::time::Duration;
-use std::cell::RefCell;
+
 
 pub const PL_DENSITY: f64 = 5000.0;
 const TRAIL_PLACEMENT_PERIOD: f64 = 0.05;
@@ -150,7 +147,7 @@ impl From<&PlanetSaveData> for Planet {
 }
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Copy, Clone)]
 pub struct PlanetSaveData {
     pub id: PlanetID,
     pub pos_x: f64,
