@@ -52,7 +52,7 @@ struct MainState {
 
     mouse_info: MouseInfo,
 
-    temp_save: Option<SaveState>,
+    quick_save: Option<SaveState>,
 }
 
 impl MainState {
@@ -70,7 +70,7 @@ impl MainState {
 
             mouse_info: MouseInfo::default(),
 
-            temp_save: None,
+            quick_save: None,
         };
 
         s.add_planet(
@@ -242,21 +242,21 @@ impl MainState {
         Ok(())
     }
 
-    fn save_to_temp_save(&mut self, ctx: &mut Context) {
+    fn save_to_quick_save(&mut self, ctx: &mut Context) {
         println!("Saving to temporary save.");
-        self.temp_save = Some(SaveState::new_from_main_state(&self));
+        self.quick_save = Some(SaveState::new_from_main_state(&self));
     }
 
-    fn load_from_temp_save(&mut self) {
-        let temp = self.temp_save.take();
+    fn load_from_quick_save(&mut self) {
+        let temp = self.quick_save.take();
         match temp {
             None => self.clear_all(),
-            Some(ref temp_save) => {
+            Some(ref quick_save) => {
                 println!("Loading from temporary save.");
-                self.load_from_save_state(temp_save);
+                self.load_from_save_state(quick_save);
             }
         }
-        self.temp_save = temp;
+        self.quick_save = temp;
     }
 
     fn load_planet(&mut self, saved_planet: &PlanetSaveData) {
@@ -399,21 +399,21 @@ impl event::EventHandler for MainState {
             KeyCode::R => {
                 self.clear_planets();
                 if mods.contains(KeyMods::CTRL) {       // CTRL + R to clear planets AND save
-                    self.temp_save = None;
+                    self.quick_save = None;
                 }
             },
             KeyCode::S => {
                 if mods.contains(KeyMods::CTRL) {
                     self.save_to_file(ctx, Path::new("/save.bin")).unwrap();
                 } else {
-                    self.save_to_temp_save(ctx);
+                    self.save_to_quick_save(ctx);
                 }
             },
             KeyCode::L => {
                 if mods.contains(KeyMods::CTRL) {
                     self.load_from_file(ctx, Path::new("/save.bin")).unwrap();
                 } else {
-                    self.load_from_temp_save();
+                    self.load_from_quick_save();
                 }
             },
             _ => ()

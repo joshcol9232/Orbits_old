@@ -2,6 +2,18 @@
 
 N-body gravity sim with nice graphics (at some point).
 
+## Controls:
+
+Input | Function
+--- | ---
+**Left Click + Drag** | Place planet with velocity.
+**R** | Reset planets.
+**CTRL + R** | Reset planets AND quick save.
+**L** | Load from quick save.
+**CTRL + L** | Load from file (W.I.P).
+**S** | Save to quick save.
+**CTRL + S** | Save to file (W.I.P).
+
 ## Ideas:
 
 - Different ways of visualising field:
