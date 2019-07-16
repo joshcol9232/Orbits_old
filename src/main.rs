@@ -3,7 +3,7 @@ mod macros;
 
 mod mouse;
 mod particles;
-mod planet;
+mod body;
 mod tools;
 
 use ggez::{
@@ -12,7 +12,7 @@ use ggez::{
     nalgebra as na, timer, Context, GameResult,
     filesystem,
 };
-use na::{Point2, RealField, Vector2};
+use na::{Point2, Vector2};
 use serde::{Serialize, Deserialize};
 
 use std::cell::RefCell;
@@ -22,33 +22,22 @@ use std::io::{Read, Write};
 
 use crate::{
     mouse::MouseInfo,
-    planet::{Planet, PlanetSaveData, PlanetID, PlanetTrail},
+    body::{Body, BodySaveData, BodyID, planet::PlanetTrail},
 };
 
 pub const TWO_PI: f64 = std::f64::consts::PI * 2.0;
 pub const GRAV_CONSTANT: f64 = 0.001;
 
-// For mobile objects
-pub trait Mobile<T: RealField> {
-    fn pos(&self) -> &Point2<T>;
-    fn pos_mut(&mut self) -> &mut Point2<T>;
-    fn vel(&self) -> &Vector2<T>;
-    fn vel_mut(&mut self) -> &mut Vector2<T>;
-
-    fn update_pos(&mut self, dt: T) {
-        let vel = *self.vel();
-        *self.pos_mut() += vel * dt;
-    }
-}
+const PLANET_SPLIT_MOMENTUM_MAG: f64 = 1000000000.0;
 
 struct MainState {
     smoke_sprite_batch: graphics::spritebatch::SpriteBatch,
 
-    planets: HashMap<PlanetID, RefCell<Planet>>,    // Hashmap of ids
-    planet_trails: HashMap<PlanetID, PlanetTrail>,  // Tied to body id. Seperate from body since i may want effect to last after body is removed.
+    planets: HashMap<BodyID, RefCell<Body>>,    // Hashmap of ids
+    planet_trails: HashMap<BodyID, PlanetTrail>,  // Tied to body id. Seperate from body since i may want effect to last after body is removed.
 
-    collided_planets: Vec<PlanetID>, // IDs
-    id_counter: PlanetID,
+    collided_planets: Vec<BodyID>, // IDs
+    id_counter: BodyID,
 
     mouse_info: MouseInfo,
 
@@ -73,11 +62,16 @@ impl MainState {
             quick_save: None,
         };
 
+        // s.add_planet(
+        //     ctx,
+        //     Point2::new(400.0f64, 400.0),
+        //     Vector2::new(0.0f64, 0.0),
+        //     20.0
+        // );
         s.add_planet(
-            ctx,
-            Point2::new(500.0f64, 400.0),
+            Point2::new(600.0f64, 400.0),
             Vector2::new(0.0f64, 0.0),
-            50.0
+            20.0
         );
 
         //s.spawn_square_of_planets(ctx, Point2::new(50.0, 50.0), 20, 20, 50.0, 5.0);
@@ -85,18 +79,26 @@ impl MainState {
         Ok(s)
     }
 
-    fn add_planet(&mut self, ctx: &Context, pos: Point2<f64>, vel: Vector2<f64>, radius: f64) {
+    #[inline]
+    fn add_planet(&mut self, pos: Point2<f64>, vel: Vector2<f64>, radius: f64) {
+        self.add_existing_planet(Body::new(self.id_counter, pos.clone(), vel, radius, 0.0));
+    }
+
+    #[inline]
+    fn add_existing_planet(&mut self, mut pl: Body) {
+        pl.id = self.id_counter;
+        let pos = pl.pos;
+
         self.planets.insert(
             self.id_counter,
-            RefCell::new(Planet::new(self.id_counter, pos.clone(), vel, radius, 0.0)),
+            RefCell::new(pl)
         );
-
         self.add_planet_trail(self.id_counter, cast_point2_to_f32!(pos));
 
         self.id_counter = self.id_counter.wrapping_add(1);
     }
 
-    fn add_planet_trail(&mut self, id: PlanetID, pos: Point2<f32>) {
+    fn add_planet_trail(&mut self, id: BodyID, pos: Point2<f32>) {
         self.planet_trails.insert(
             id,
             PlanetTrail::new(pos),
@@ -164,7 +166,7 @@ impl MainState {
 
     fn draw_fps_and_info(&self, ctx: &mut Context) -> GameResult {
         use graphics::Text;
-        let text = Text::new(format!("{:.2}\nPlanets: {}\nParticles: {}", timer::fps(ctx), self.planets.len(), self.get_total_particle_count()));
+        let text = Text::new(format!("{:.2}\nBodys: {}\nParticles: {}", timer::fps(ctx), self.planets.len(), self.get_total_particle_count()));
 
         graphics::draw(
             ctx,
@@ -176,7 +178,6 @@ impl MainState {
 
     fn spawn_square_of_planets(
         &mut self,
-        ctx: &Context,
         top_left: Point2<f64>,
         w: u16,
         h: u16,
@@ -186,7 +187,6 @@ impl MainState {
         for i in 0..w {
             for j in 0..h {
                 self.add_planet(
-                    ctx,
                     Point2::new(top_left.x + i as f64 * gap, top_left.y + j as f64 * gap),
                     Vector2::new(0.0, 0.0),
                     rad,
@@ -195,6 +195,7 @@ impl MainState {
         }
     }
 
+    // CLEARING //
     #[inline]
     fn clear_planets(&mut self) {
         self.planets.clear();
@@ -224,6 +225,7 @@ impl MainState {
         self.clear_planets();
     }
 
+    // SAVING //
     fn save_to_file(&self, ctx: &mut Context, path: &Path) -> GameResult {
         println!("Saving: {}", path.display());
         let save = SaveState::new_from_main_state(&self);
@@ -242,12 +244,13 @@ impl MainState {
         Ok(())
     }
 
-    fn save_to_quick_save(&mut self, ctx: &mut Context) {
+    fn save_to_quick_save(&mut self) {
         println!("Saving to temporary save.");
         self.quick_save = Some(SaveState::new_from_main_state(&self));
     }
 
     fn load_from_quick_save(&mut self) {
+        println!("Loading from temporary save.");
         let temp = self.quick_save.take();
         match temp {
             None => self.clear_all(),
@@ -259,8 +262,9 @@ impl MainState {
         self.quick_save = temp;
     }
 
-    fn load_planet(&mut self, saved_planet: &PlanetSaveData) {
-        let mut loaded_planet: Planet = saved_planet.into();
+    fn load_planet(&mut self, saved_planet: &BodySaveData) {
+        println!("Loading planet.");
+        let mut loaded_planet: Body = saved_planet.into();
         let new_id = self.id_counter;
         self.id_counter += 1;
         loaded_planet.id = new_id;
@@ -292,6 +296,7 @@ impl event::EventHandler for MainState {
 
         self.remove_dead_planet_trails();
         self.remove_collided_planets();
+        // let mut planets_to_add: Vec<Body> = vec![];
 
         let keys: Vec<&u32> = self.planets.keys().collect();
 
@@ -305,12 +310,17 @@ impl event::EventHandler for MainState {
                 if Self::is_colliding(&me.pos, &other.pos, me.radius, other.radius) {
                     //self.planets.remove(keys[j]);
                     if me.radius < other.radius {
+                        // let pl = other.split(0.9, self.id_counter, Vector2::new(PLANET_SPLIT_MOMENTUM_MAG, 0.0), std::f64::consts::PI);
                         other.collide(&me);
                         self.collided_planets.push(*keys[i]);
+                        // pl
                     } else {
+                        // let pl = me.split(0.9, self.id_counter, Vector2::new(PLANET_SPLIT_MOMENTUM_MAG, 0.0), std::f64::consts::PI);
                         me.collide(&other);
                         self.collided_planets.push(*keys[j]);
+                        // pl
                     }
+                    //planets_to_add.push(split_pl);
                 } else {
                     let df1 = tools::newtonian_grav(me.mass, other.mass, &me.pos, &other.pos);
 
@@ -331,6 +341,10 @@ impl event::EventHandler for MainState {
             trail_sys.update(dt, &time_since_start);
         }
 
+        // for pl in planets_to_add {
+        //     self.add_existing_planet(pl);
+        // }
+
         Ok(())
     }
 
@@ -340,12 +354,13 @@ impl event::EventHandler for MainState {
 
         // Display particles behind planets
         for (_, sys) in self.planet_trails.iter() {
-            sys.draw(ctx, &time_since_start, &mut self.smoke_sprite_batch)?;
+            sys.draw(&time_since_start, &mut self.smoke_sprite_batch)?;
         }
         graphics::draw(ctx, &self.smoke_sprite_batch, DrawParam::new())?;
         self.smoke_sprite_batch.clear();
 
         for (_, rc) in self.planets.iter() {
+            //println!("Drawing: {}", k);
             rc.borrow().draw(ctx)?;
         }
 
@@ -372,7 +387,7 @@ impl event::EventHandler for MainState {
         self.mouse_info.down_pos = Point2::new(x, y);
     }
 
-    fn mouse_button_up_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
+    fn mouse_button_up_event(&mut self, _ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
         self.mouse_info.down = false;
         let origin = Point2::new(
             self.mouse_info.down_pos.x as f64,
@@ -380,7 +395,7 @@ impl event::EventHandler for MainState {
         );
 
         if button == MouseButton::Left {
-            self.add_planet(ctx, origin, origin - Point2::new(x as f64, y as f64), 5.0);
+            self.add_planet(origin, origin - Point2::new(x as f64, y as f64), 5.0);
         }
     }
 
@@ -406,7 +421,7 @@ impl event::EventHandler for MainState {
                 if mods.contains(KeyMods::CTRL) {
                     self.save_to_file(ctx, Path::new("/save.bin")).unwrap();
                 } else {
-                    self.save_to_quick_save(ctx);
+                    self.save_to_quick_save();
                 }
             },
             KeyCode::L => {
@@ -424,7 +439,7 @@ impl event::EventHandler for MainState {
 // Important fields from MainState
 #[derive(Serialize, Deserialize, Default)]
 struct SaveState {
-    planets: HashMap<PlanetID, PlanetSaveData>,
+    planets: HashMap<BodyID, BodySaveData>,
 }
 
 impl SaveState {
@@ -445,8 +460,8 @@ impl SaveState {
         Ok(save)
     }
 
-    fn planet_save_data_from_planets(map: &HashMap<PlanetID, RefCell<Planet>>) -> HashMap<PlanetID, PlanetSaveData> {
-        let mut out_map: HashMap<PlanetID, PlanetSaveData> = HashMap::new();
+    fn planet_save_data_from_planets(map: &HashMap<BodyID, RefCell<Body>>) -> HashMap<BodyID, BodySaveData> {
+        let mut out_map: HashMap<BodyID, BodySaveData> = HashMap::new();
         for (key, val) in map.iter() {
             out_map.insert(*key, val.borrow().into());
         }

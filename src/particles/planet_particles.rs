@@ -1,6 +1,6 @@
 use ggez::graphics::{DrawParam, spritebatch};
 use ggez::nalgebra as na;
-use ggez::{Context, GameResult, timer};
+use ggez::{GameResult, timer};
 use na::{Point2, Vector2};
 use rand::{rngs::ThreadRng, Rng};
 
@@ -8,7 +8,7 @@ use std::collections::VecDeque;
 use std::time::Duration;
 
 use super::{Particle, ParticleSystem};
-use crate::{Mobile, TWO_PI, tools};
+use crate::{body::Mobile, TWO_PI, tools};
 
 const PARTICLE_SPEED_LIMIT: f32 = 5.0;
 const PARTICLE_RAD_LIMITS: (f32, f32) = (5.0, 10.0);
@@ -65,7 +65,7 @@ impl PlanetTrailParticleSys {
         }
     }
 
-    pub fn draw(&self, ctx: &mut Context, current_time: &Duration, batch: &mut spritebatch::SpriteBatch) -> GameResult {
+    pub fn draw(&self, current_time: &Duration, batch: &mut spritebatch::SpriteBatch) -> GameResult {
         const SCALE: [f32; 2] = [1.0/SMOKE_IMAGE_DIMENSIONS[0] as f32, 1.0/SMOKE_IMAGE_DIMENSIONS[1] as f32];
 
         for p in self.particles.iter() {
