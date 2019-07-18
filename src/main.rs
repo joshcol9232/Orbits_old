@@ -166,7 +166,7 @@ impl MainState {
 
     fn draw_fps_and_info(&self, ctx: &mut Context) -> GameResult {
         use graphics::Text;
-        let text = Text::new(format!("{:.2}\nBodys: {}\nParticles: {}", timer::fps(ctx), self.planets.len(), self.get_total_particle_count()));
+        let text = Text::new(format!("{:.2}\nBodies: {}\nParticles: {}", timer::fps(ctx), self.planets.len(), self.get_total_particle_count()));
 
         graphics::draw(
             ctx,

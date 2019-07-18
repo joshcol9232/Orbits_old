@@ -190,6 +190,12 @@ impl From<&BodySaveData> for Body {
 }
 
 
+pub enum BodyType {
+    Planet,
+    Star,
+}
+
+
 #[derive(Serialize, Deserialize, Copy, Clone)]
 pub struct BodySaveData {
     pub id: BodyID,
