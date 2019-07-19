@@ -6,6 +6,6 @@ edition = "2018"
 
 [dependencies]
 ggez = "0.5.0-rc.2"
-rand = "0.7.0"
-serde = { version = "1.0.94", features = ["derive"] }
-bincode = "1.1.4"
+specs = "0.15.0"
+specs-derive = "0.4.0"
+euclid = "0.20.0"
