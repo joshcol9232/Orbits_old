@@ -22,17 +22,18 @@ impl<'a> System<'a> for MotionSys {
 
     fn run(&mut self, (dt, mut pos, mut vel, mut force, mass): Self::SystemData) {
         // Update entities with force and mass
-        for (vel, force, mass) in (&mut vel, &mut force, &mass).join() {
-            // F = ma, a = F/m
-            vel.0 += (force.0/mass.0) * dt.0;
-            // Reset resultant force
-            force.0 = Vector2D::zero();
-        }
+        (&mut vel, &mut force, &mass).par_join()
+            .for_each(|(vel, force, mass)| {
+                // F = ma, a = F/m
+                vel.0 += (force.0/mass.0) * dt.0;
+                // Reset resultant force
+                force.0 = Vector2D::zero();
+            });
 
-        // Update entities with velocity
-        for (pos, vel) in (&mut pos, &vel).join() {
-            pos.0 += vel.0 * dt.0;
-        }
+        (&mut pos, &vel).par_join()
+            .for_each(|(pos, vel)| {
+                pos.0 += vel.0 * dt.0;
+            });
     }
 
     fn setup(&mut self, world: &mut World) {

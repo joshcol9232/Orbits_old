@@ -24,6 +24,7 @@ use crate::{
     systems::{
         gravity::GravitySys,
         motion::MotionSys,
+        collision::CollisionSys,
     }
 };
 
@@ -46,7 +47,7 @@ impl MainState {
 
         Self::add_planet(
             &mut ecs_world,
-            Point2D::new(100.0, 100.0),
+            Point2D::new(400.0, 300.0),
             Vector2D::new(0.0, 0.0),
             5.0
         );
@@ -55,6 +56,12 @@ impl MainState {
             Point2D::new(200.0, 100.0),
             Vector2D::new(0.0, 0.0),
             50.0
+        );
+        Self::add_planet(
+            &mut ecs_world,
+            Point2D::new(800.0, 100.0),
+            Vector2D::new(0.0, 0.0),
+            10.0
         );
 
 
@@ -72,7 +79,8 @@ impl MainState {
     fn register_systems() -> specs::Dispatcher<'static, 'static> {
         DispatcherBuilder::new()
             .with(MotionSys, "motion_sys", &[])
-            .with(GravitySys, "gravity_sys", &["motion_sys"])
+            .with(CollisionSys, "collision_sys", &["motion_sys"])
+            .with(GravitySys::default(), "gravity_sys", &["motion_sys"])
             .build()
     }
 

@@ -10,7 +10,10 @@ use crate::{
 
 pub const G: f64 = 0.001;
 
-pub struct GravitySys;
+#[derive(Default)]
+pub struct GravitySys {
+    done: BitSet,
+}
 
 impl GravitySys {
     fn newtonian(p1: &Point2D<f64, f64>, p2: &Point2D<f64, f64>, mass1: f64, mass2: f64) -> Vector2D<f64, f64> {
@@ -54,7 +57,4 @@ impl<'a> System<'a> for GravitySys {
             }
         }
     }
-
-    // fn setup(&mut self, world: &mut World) {
-    // }
 }
